@@ -1,0 +1,11 @@
+* QML TableView
+** Overview
+This is a simple implementation of a TableView in QML. It works with pure QML and Python models.
+
+Although the Python models must implement the =addData()= method as a workaround for the imcompatible QML API.
+
+The idea is this can be used as a simple table in QML and readily /wired into/ with Python / C++
+** Tasks
+*** TODO Investigate TableViewDelegate
+  This seems pretty new and there's limited docs. I should circle back around
+https://doc.qt.io/qt-6/qml-qtquick-controls-tableviewdelegate.html

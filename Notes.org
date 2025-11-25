@@ -1,3 +1,0 @@
-* TODO Investigate TableViewDelegate
-  This seems pretty new and there's limited docs. I should circle back around
-https://doc.qt.io/qt-6/qml-qtquick-controls-tableviewdelegate.html
