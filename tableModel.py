@@ -125,6 +125,7 @@ class PythonTableModel(QAbstractTableModel):
 
         return False
 
+    @Slot(int, Qt.Orientation, int, result=str)
     def headerData(self, section, orientation, role: int = DisplayRole):
         """
         Return header labels for columns and rows.
@@ -136,17 +137,21 @@ class PythonTableModel(QAbstractTableModel):
         role = Qt.ItemDataRole(role)
 
         if role != DisplayRole:
-            return None
+            return ""  # Return empty string instead of None for QML compatibility
 
         if orientation == Qt.Orientation.Horizontal:
             # Column headers
             if 0 <= section < len(self._columns):
                 return self._columns[section]
+            # Return empty string for out-of-bounds columns
+            return ""
         elif orientation == Qt.Orientation.Vertical:
             # Row numbers (1-based)
-            return section + 1
+            if 0 <= section < len(self._data):
+                return str(section + 1)
+            return ""
 
-        return None
+        return ""  # Default: return empty string instead of None
 
     def flags(self, index):
         """

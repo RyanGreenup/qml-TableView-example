@@ -223,7 +223,7 @@ ApplicationWindow {
 
                     Text {
                         id: headerText
-                        text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole)
+                        text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || ""
                         font.bold: true
                         color: tableContainer.headerTextColor
                         anchors.verticalCenter: parent.verticalCenter
@@ -310,7 +310,7 @@ ApplicationWindow {
                     focus: false
                     focusPolicy: Qt.NoFocus
                     anchors.centerIn: parent
-                    text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole)
+                    text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole) || ""
                     font.bold: true
                     color: tableContainer.headerTextColor
                 }
