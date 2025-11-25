@@ -4,16 +4,73 @@ import QtQuick.Controls
 import Qt.labs.qmlmodels
 
 Item {
+    id: editableTableRoot
     visible: true
     anchors.fill: parent
 
-    // Public API - expose configuration properties
-    property alias dragButtons: tableContainer.dragButtons
-    property alias resizingEnabled: tableContainer.resizingEnabled
-    property alias hideHeaders: tableContainer.hideHeaders
-    property alias autoSizeColumns: tableContainer.autoSizeColumns
+    // ========================================================================
+    // PUBLIC API - Configuration Properties
+    // ========================================================================
 
-    // Expose methods for programmatic access
+    // ========================================================================
+    // BEHAVIOR CONFIGURATION
+    // ========================================================================
+    property bool hideHeaders: false
+    property bool resizingEnabled: true
+    property int dragButtons: Qt.NoButton
+    property bool autoSizeColumns: true
+
+    // ========================================================================
+    // STYLING CONFIGURATION
+    // ========================================================================
+
+    // Color Palette (Design Tokens)
+    // Headers
+    property color headerBackgroundColor: palette.button
+    property color headerTextColor: palette.buttonText
+    property color headerBorderColor: palette.mid
+
+    // Cells
+    property color cellBackgroundColor: palette.base
+    property color cellSelectedColor: palette.highlight
+    property color cellTextColor: palette.text
+    property color cellCurrentBorderColor: palette.highlight
+
+    // Table
+    property color tableFocusBorderColor: palette.highlight
+    property color tableBackgroundColor: "transparent"
+
+    // Horizontal Header Styling
+    property int horizontalHeaderHeight: 30
+    property int horizontalHeaderBorderWidth: 1
+
+    // Vertical Header Styling
+    property int verticalHeaderWidth: 40
+    property int verticalHeaderBorderWidth: 1
+
+    // Cell Styling
+    property int cellHeight: 25
+    property int cellBorderWidth: 2  // Border width for current cell
+    property int cellPaddingHorizontal: 10
+
+    // Table Styling
+    property int tableRowSpacing: 1
+    property int tableColumnSpacing: 1
+    property int tableFocusBorderWidth: 2
+
+    // Column Width Constraints (for auto-sizing)
+    property int columnMinWidth: 60
+    property int columnMaxWidth: 250
+    property int columnDefaultWidth: 100
+
+    // Header Sort Indicator
+    property int sortIndicatorFontSize: 10
+    property int headerTextSpacing: 4  // Spacing between header text and sort indicator
+
+    // ========================================================================
+    // PUBLIC API - Methods
+    // ========================================================================
+
     function clearColumnWidths() {
         tableView.clearColumnWidths();
     }
@@ -42,7 +99,7 @@ Item {
         //
         // USAGE FROM C++/PYTHON:
         //   QML side:
-        //     tableContainer.tableModel = myCustomModel
+        //     editableTableRoot.tableModel = myCustomModel
         //
         //   Python (PySide6) example:
         //     from PySide6.QtCore import QAbstractTableModel, Qt
@@ -64,61 +121,6 @@ Item {
         // ========================================================================
         property var tableModel: null  // Set to your C++/Python model, or null to use ExampleTableModel
 
-        // ========================================================================
-        // BEHAVIOR CONFIGURATION
-        // ========================================================================
-        property bool hideHeaders: false
-        property bool resizingEnabled: true
-        property int dragButtons: Qt.NoButton
-        property bool autoSizeColumns: true
-
-        // ========================================================================
-        // STYLING CONFIGURATION
-        // ========================================================================
-
-        // Color Palette (Design Tokens)
-        // Headers
-        property color headerBackgroundColor: palette.button
-        property color headerTextColor: palette.buttonText
-        property color headerBorderColor: palette.mid
-
-        // Cells
-        property color cellBackgroundColor: palette.base
-        property color cellSelectedColor: palette.highlight
-        property color cellTextColor: palette.text
-        property color cellCurrentBorderColor: palette.highlight
-
-        // Table
-        property color tableFocusBorderColor: palette.highlight
-        property color tableBackgroundColor: "transparent"
-
-        // Horizontal Header Styling
-        property int horizontalHeaderHeight: 30
-        property int horizontalHeaderBorderWidth: 1
-
-        // Vertical Header Styling
-        property int verticalHeaderWidth: 40
-        property int verticalHeaderBorderWidth: 1
-
-        // Cell Styling
-        property int cellHeight: 25
-        property int cellBorderWidth: 2  // Border width for current cell
-        property int cellPaddingHorizontal: 10
-
-        // Table Styling
-        property int tableRowSpacing: 1
-        property int tableColumnSpacing: 1
-        property int tableFocusBorderWidth: 2
-
-        // Column Width Constraints (for auto-sizing)
-        property int columnMinWidth: 60
-        property int columnMaxWidth: 250
-        property int columnDefaultWidth: 100
-
-        // Header Sort Indicator
-        property int sortIndicatorFontSize: 10
-        property int headerTextSpacing: 4  // Spacing between header text and sort indicator
-
         HorizontalHeaderView {
             id: hHeader
             anchors.top: parent.top
@@ -131,29 +133,29 @@ Item {
             // - Double-click column border to auto-fit to content
             // Resized widths are stored via setColumnWidth() and retrieved via explicitColumnWidth()
             // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#resizableColumns-prop
-            resizableColumns: tableContainer.resizingEnabled
+            resizableColumns: editableTableRoot.resizingEnabled
             // qmllint disable missing-property
-            acceptedButtons: tableContainer.dragButtons
-            visible: !tableContainer.hideHeaders
+            acceptedButtons: editableTableRoot.dragButtons
+            visible: !editableTableRoot.hideHeaders
 
             delegate: Rectangle {
                 id: horizontalHeaderDelegate
-                implicitWidth: tableContainer.columnDefaultWidth
-                implicitHeight: tableContainer.horizontalHeaderHeight
+                implicitWidth: editableTableRoot.columnDefaultWidth
+                implicitHeight: editableTableRoot.horizontalHeaderHeight
                 required property int index
-                color: tableContainer.headerBackgroundColor
-                border.width: tableContainer.horizontalHeaderBorderWidth
-                border.color: tableContainer.headerBorderColor
+                color: editableTableRoot.headerBackgroundColor
+                border.width: editableTableRoot.horizontalHeaderBorderWidth
+                border.color: editableTableRoot.headerBorderColor
 
                 Row {
                     anchors.centerIn: parent
-                    spacing: tableContainer.headerTextSpacing
+                    spacing: editableTableRoot.headerTextSpacing
 
                     Text {
                         id: headerText
                         text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || ""
                         font.bold: true
-                        color: tableContainer.headerTextColor
+                        color: editableTableRoot.headerTextColor
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -169,8 +171,8 @@ Item {
                             }
                             return "";
                         }
-                        font.pixelSize: tableContainer.sortIndicatorFontSize
-                        color: tableContainer.headerTextColor
+                        font.pixelSize: editableTableRoot.sortIndicatorFontSize
+                        color: editableTableRoot.headerTextColor
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -218,19 +220,19 @@ Item {
             anchors.bottom: parent.bottom
             syncView: tableView
             clip: true
-            resizableRows: tableContainer.resizingEnabled
+            resizableRows: editableTableRoot.resizingEnabled
             // qmllint disable missing-property
-            acceptedButtons: tableContainer.dragButtons
-            visible: !tableContainer.hideHeaders
+            acceptedButtons: editableTableRoot.dragButtons
+            visible: !editableTableRoot.hideHeaders
 
             delegate: Rectangle {
                 id: verticalHeaderDelegate
-                implicitWidth: tableContainer.verticalHeaderWidth
-                implicitHeight: tableContainer.cellHeight
+                implicitWidth: editableTableRoot.verticalHeaderWidth
+                implicitHeight: editableTableRoot.cellHeight
                 required property int index
-                color: tableContainer.headerBackgroundColor
-                border.width: tableContainer.verticalHeaderBorderWidth
-                border.color: tableContainer.headerBorderColor
+                color: editableTableRoot.headerBackgroundColor
+                border.width: editableTableRoot.verticalHeaderBorderWidth
+                border.color: editableTableRoot.headerBorderColor
                 focus: false
                 focusPolicy: Qt.NoFocus
 
@@ -240,19 +242,19 @@ Item {
                     anchors.centerIn: parent
                     text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole) || ""
                     font.bold: true
-                    color: tableContainer.headerTextColor
+                    color: editableTableRoot.headerTextColor
                 }
             }
         }
 
         Rectangle {
-            anchors.top: tableContainer.hideHeaders ? parent.top : hHeader.bottom
-            anchors.left: tableContainer.hideHeaders ? parent.left : vHeader.right
+            anchors.top: editableTableRoot.hideHeaders ? parent.top : hHeader.bottom
+            anchors.left: editableTableRoot.hideHeaders ? parent.left : vHeader.right
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            border.width: tableView.focus ? tableContainer.tableFocusBorderWidth : 0
-            border.color: tableContainer.tableFocusBorderColor
-            color: tableContainer.tableBackgroundColor
+            border.width: tableView.focus ? editableTableRoot.tableFocusBorderWidth : 0
+            border.color: editableTableRoot.tableFocusBorderColor
+            color: editableTableRoot.tableBackgroundColor
 
             TableView {
                 id: tableView
@@ -260,14 +262,14 @@ Item {
                 clip: true
                 interactive: true
                 // qmllint disable missing-property
-                acceptedButtons: tableContainer.dragButtons
-                rowSpacing: tableContainer.tableRowSpacing
-                columnSpacing: tableContainer.tableColumnSpacing
+                acceptedButtons: editableTableRoot.dragButtons
+                rowSpacing: editableTableRoot.tableRowSpacing
+                columnSpacing: editableTableRoot.tableColumnSpacing
                 focus: true
                 editTriggers: TableView.DoubleTapped | TableView.EditKeyPressed
 
                 // Use custom model if provided, otherwise fallback to example model
-                model: tableContainer.tableModel ?? exampleModel
+                model: editableTableRoot.tableModel ?? exampleModel
                 selectionModel: ItemSelectionModel {
                     model: tableView.model
                 }
@@ -286,13 +288,13 @@ Item {
                         return explicitWidth;  // Honor user's manual resize
 
                     // If auto-sizing is enabled, use content-aware sizing
-                    if (tableContainer.autoSizeColumns) {
+                    if (editableTableRoot.autoSizeColumns) {
                         let contentWidth = implicitColumnWidth(column);
-                        return Math.min(Math.max(tableContainer.columnMinWidth, contentWidth), tableContainer.columnMaxWidth);
+                        return Math.min(Math.max(editableTableRoot.columnMinWidth, contentWidth), editableTableRoot.columnMaxWidth);
                     }
 
                     // Fallback to fixed width when auto-sizing is disabled
-                    return tableContainer.columnDefaultWidth;
+                    return editableTableRoot.columnDefaultWidth;
                 }
 
                 Keys.onPressed: function (event) {
@@ -315,29 +317,30 @@ Item {
 
                 delegate: Rectangle {
                     id: root
-                    implicitHeight: tableContainer.cellHeight
+                    implicitHeight: editableTableRoot.cellHeight
                     required property bool selected
                     required property bool current
                     required property bool editing
                     required property var display
                     required property int row
                     required property int column
-                    color: selected ? tableContainer.cellSelectedColor : tableContainer.cellBackgroundColor
-                    border.width: current ? tableContainer.cellBorderWidth : 0
-                    border.color: tableContainer.cellCurrentBorderColor
+                    color: selected ? editableTableRoot.cellSelectedColor : editableTableRoot.cellBackgroundColor
+                    border.width: current ? editableTableRoot.cellBorderWidth : 0
+                    border.color: editableTableRoot.cellCurrentBorderColor
+                    clip: true
 
                     Label {
                         id: cellLabel
                         text: root.display
                         anchors.fill: parent
                         verticalAlignment: Text.AlignVCenter
-                        leftPadding: tableContainer.cellPaddingHorizontal
-                        rightPadding: tableContainer.cellPaddingHorizontal
+                        leftPadding: editableTableRoot.cellPaddingHorizontal
+                        rightPadding: editableTableRoot.cellPaddingHorizontal
                         visible: !root.editing
                     }
 
                     // Set implicitWidth based on Label's content width + padding
-                    implicitWidth: cellLabel.implicitWidth + (tableContainer.cellPaddingHorizontal * 2)
+                    implicitWidth: cellLabel.implicitWidth + (editableTableRoot.cellPaddingHorizontal * 2)
 
                     TableView.editDelegate: TextField {
                         anchors.fill: parent
@@ -373,7 +376,7 @@ Item {
         target: tableView
     }
 
-    // Default example model (used when tableContainer.tableModel is null)
+    // Default example model (used when editableTableRoot.tableModel is null)
     // This provides a self-contained demo and serves as documentation for
     // what a custom C++/Python model should implement
     ExampleTableModel {

@@ -40,7 +40,7 @@ def main(
 
     # Setup QML
     engine.rootContext().setContextProperty("pythonModel", table_model)
-    engine.load(Path("./qml/EditableTable.qml"))
+    engine.load(Path("main.qml"))
 
     if not engine.rootObjects():
         sys.exit(-1)
