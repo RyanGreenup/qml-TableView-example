@@ -25,51 +25,83 @@ Item {
     property bool showRowNumbers: true
 
     // ========================================================================
-    // STYLING CONFIGURATION
+    // STYLING CONFIGURATION - Default Style Object
     // ========================================================================
+    // Consumers can override individual properties or provide a complete style object
+    property var style: QtObject {
+        // Color Palette (Design Tokens)
+        // Headers
+        property color headerBackgroundColor: palette.button
+        property color headerTextColor: palette.buttonText
+        property color headerBorderColor: palette.mid
+        property color headerHoverColor: Qt.rgba(0, 0, 0, 0.05)
 
-    // Color Palette (Design Tokens)
-    // Headers
-    property color headerBackgroundColor: palette.button
-    property color headerTextColor: palette.buttonText
-    property color headerBorderColor: palette.mid
+        // Cells
+        property color cellBackgroundColor: palette.base
+        property color cellAlternateBackgroundColor: Qt.rgba(0, 0, 0, 0.02)
+        property color cellSelectedColor: palette.highlight
+        property color cellHoverColor: Qt.rgba(0, 0, 0, 0.03)
+        property color cellTextColor: palette.text
+        property color cellCurrentBorderColor: palette.highlight
 
-    // Cells
-    property color cellBackgroundColor: palette.base
-    property color cellSelectedColor: palette.highlight
-    property color cellTextColor: palette.text
-    property color cellCurrentBorderColor: palette.highlight
+        // Table
+        property color tableFocusBorderColor: palette.highlight
+        property color tableBackgroundColor: "transparent"
 
-    // Table
-    property color tableFocusBorderColor: palette.highlight
-    property color tableBackgroundColor: "transparent"
+        // Edit Field Styling
+        property color editFieldBackgroundColor: palette.base
+        property color editFieldBorderColor: palette.highlight
+        property color editFieldTextColor: palette.text
+        property int editFieldRadius: 4
 
-    // Horizontal Header Styling
-    property int horizontalHeaderHeight: 30
-    property int horizontalHeaderBorderWidth: 1
+        // Typography
+        property int cellFontSize: 14
+        property int cellTextAlignment: Text.AlignLeft  // Cell text alignment
+        property int headerFontSize: 12
+        property int headerFontWeight: Font.Medium
+        property bool headerTextUppercase: false
+        property int headerTextAlignment: Text.AlignLeft  // ShadCN uses left-aligned headers
 
-    // Vertical Header Styling
-    property int verticalHeaderWidth: 40
-    property int verticalHeaderBorderWidth: 1
+        // Horizontal Header Styling
+        property int horizontalHeaderHeight: 40
+        property int horizontalHeaderBorderWidth: 0  // No side borders for clean look
+        property int horizontalHeaderBottomBorderWidth: 2  // Strong bottom border (ShadCN style)
+        property int horizontalHeaderPaddingHorizontal: 16  // Generous horizontal padding
 
-    // Cell Styling
-    property int cellHeight: 25
-    property int cellBorderWidth: 2  // Border width for current cell
-    property int cellPaddingHorizontal: 10
+        // Vertical Header Styling
+        property int verticalHeaderWidth: 60
+        property int verticalHeaderBorderWidth: 0  // No outer border
+        property int verticalHeaderRightBorderWidth: 1  // Subtle right border to separate from content
+        property int verticalHeaderPaddingHorizontal: 12  // Padding for row numbers
+        property int verticalHeaderFontSize: 11  // Smaller, more subtle
+        property int rowNumberTextAlignment: Text.AlignRight  // Right-align for better number alignment
 
-    // Table Styling
-    property int tableRowSpacing: 1
-    property int tableColumnSpacing: 1
-    property int tableFocusBorderWidth: 2
+        // Cell Styling
+        property int cellHeight: 25
+        property int cellBorderWidth: 2  // Border width for current cell
+        property int cellPaddingHorizontal: 10
+        property int cellPaddingVertical: 8
+        property int cellRadius: 0  // Individual cell radius
 
-    // Column Width Constraints (for auto-sizing)
-    property int columnMinWidth: 60
-    property int columnMaxWidth: 250
-    property int columnDefaultWidth: 100
+        // Table Styling
+        property int tableRowSpacing: 1
+        property int tableColumnSpacing: 1
+        property int tableFocusBorderWidth: 2
+        property int tableRadius: 0  // Outer table border radius (0 for clean edges)
 
-    // Header Sort Indicator
-    property int sortIndicatorFontSize: 10
-    property int headerTextSpacing: 4  // Spacing between header text and sort indicator
+        // Behavior Flags
+        property bool enableAlternatingRows: false
+        property bool enableHoverEffects: true
+
+        // Column Width Constraints (for auto-sizing)
+        property int columnMinWidth: 60
+        property int columnMaxWidth: 250
+        property int columnDefaultWidth: 100
+
+        // Header Sort Indicator
+        property int sortIndicatorFontSize: 10
+        property int headerTextSpacing: 4  // Spacing between header text and sort indicator
+    }
 
     // ========================================================================
     // PUBLIC API - Methods
@@ -131,7 +163,7 @@ Item {
             id: hHeader
             clip: true
             anchors.top: parent.top
-            anchors.left: vHeader.right
+            anchors.left: editableTableRoot.showRowNumbers ? vHeader.right : parent.left
             anchors.right: parent.right
             syncView: tableView
             // Enables user column resizing (Qt 6.5+):
@@ -163,7 +195,8 @@ Item {
             resizableRows: editableTableRoot.resizingEnabled
             // qmllint disable missing-property
             acceptedButtons: editableTableRoot.dragButtons
-            visible: editableTableRoot.showRowNumbers ? !editableTableRoot.hideHeaders : false
+            // Show row numbers only if: enabled AND headers not hidden
+            visible: editableTableRoot.showRowNumbers && !editableTableRoot.hideHeaders
 
             delegate: RowNumberTile {}
         }
@@ -171,12 +204,20 @@ Item {
         // The table itself
         Rectangle {
             anchors.top: editableTableRoot.hideHeaders ? parent.top : hHeader.bottom
-            anchors.left: editableTableRoot.hideHeaders ? parent.left : vHeader.right
+            anchors.left: {
+                // Priority: hideHeaders trumps showRowNumbers
+                if (editableTableRoot.hideHeaders) {
+                    return parent.left;
+                }
+                // If headers visible, check if row numbers should be shown
+                return editableTableRoot.showRowNumbers ? vHeader.right : parent.left;
+            }
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            border.width: tableView.focus ? editableTableRoot.tableFocusBorderWidth : 0
-            border.color: editableTableRoot.tableFocusBorderColor
-            color: editableTableRoot.tableBackgroundColor
+            border.width: tableView.focus ? editableTableRoot.style.tableFocusBorderWidth : 0
+            border.color: editableTableRoot.style.tableFocusBorderColor
+            color: editableTableRoot.style.tableBackgroundColor
+            radius: editableTableRoot.style.tableRadius
 
             TableView {
                 id: tableView
@@ -185,8 +226,8 @@ Item {
                 interactive: true
                 // qmllint disable missing-property
                 acceptedButtons: editableTableRoot.dragButtons
-                rowSpacing: editableTableRoot.tableRowSpacing
-                columnSpacing: editableTableRoot.tableColumnSpacing
+                rowSpacing: editableTableRoot.style.tableRowSpacing
+                columnSpacing: editableTableRoot.style.tableColumnSpacing
                 focus: true
                 editTriggers: TableView.DoubleTapped | TableView.EditKeyPressed
 
@@ -213,11 +254,11 @@ Item {
                     // If auto-sizing is enabled, use content-aware sizing
                     if (editableTableRoot.autoSizeColumns) {
                         let contentWidth = implicitColumnWidth(column);
-                        return Math.min(Math.max(editableTableRoot.columnMinWidth, contentWidth), editableTableRoot.columnMaxWidth);
+                        return Math.min(Math.max(editableTableRoot.style.columnMinWidth, contentWidth), editableTableRoot.style.columnMaxWidth);
                     }
 
                     // Fallback to fixed width when auto-sizing is disabled
-                    return editableTableRoot.columnDefaultWidth;
+                    return editableTableRoot.style.columnDefaultWidth;
                 }
 
                 Keys.onPressed: function (event) {
@@ -245,31 +286,52 @@ Item {
 
     component TableCell: Rectangle {
         id: tableCell
-        implicitHeight: editableTableRoot.cellHeight
+        implicitHeight: editableTableRoot.style.cellHeight
         required property bool selected
         required property bool current
         required property bool editing
         required property var display
         required property int row
         required property int column
-        color: selected ? editableTableRoot.cellSelectedColor : editableTableRoot.cellBackgroundColor
-        border.width: current ? editableTableRoot.cellBorderWidth : 0
-        border.color: editableTableRoot.cellCurrentBorderColor
+
+        // Calculate base color with alternating row support
+        readonly property color baseColor: {
+            if (editableTableRoot.style.enableAlternatingRows && row % 2 === 1) {
+                return editableTableRoot.style.cellAlternateBackgroundColor;
+            }
+            return editableTableRoot.style.cellBackgroundColor;
+        }
+
+        color: selected ? editableTableRoot.style.cellSelectedColor :
+               (cellMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects) ?
+               editableTableRoot.style.cellHoverColor : baseColor
+        border.width: current ? editableTableRoot.style.cellBorderWidth : 0
+        border.color: editableTableRoot.style.cellCurrentBorderColor
+        radius: editableTableRoot.style.cellRadius
         clip: true
+
+        Behavior on color {
+            ColorAnimation { duration: 100 }
+        }
 
         Label {
             id: cellLabel
             text: tableCell.display
             wrapMode: Text.Wrap
             anchors.fill: parent
+            horizontalAlignment: editableTableRoot.style.cellTextAlignment
             verticalAlignment: Text.AlignVCenter
-            leftPadding: editableTableRoot.cellPaddingHorizontal
-            rightPadding: editableTableRoot.cellPaddingHorizontal
+            leftPadding: editableTableRoot.style.cellPaddingHorizontal
+            rightPadding: editableTableRoot.style.cellPaddingHorizontal
+            topPadding: editableTableRoot.style.cellPaddingVertical
+            bottomPadding: editableTableRoot.style.cellPaddingVertical
             visible: !tableCell.editing
+            color: editableTableRoot.style.cellTextColor
+            font.pixelSize: editableTableRoot.style.cellFontSize
         }
 
         // Set implicitWidth based on Label's content width + padding
-        implicitWidth: cellLabel.implicitWidth + (editableTableRoot.cellPaddingHorizontal * 2)
+        implicitWidth: cellLabel.implicitWidth + (editableTableRoot.style.cellPaddingHorizontal * 2)
 
         TableView.editDelegate: TextField {
             anchors.fill: parent
@@ -277,6 +339,14 @@ Item {
             required property int row
             required property int column
             text: display
+            color: editableTableRoot.style.editFieldTextColor
+            font.pixelSize: editableTableRoot.style.cellFontSize
+            background: Rectangle {
+                color: editableTableRoot.style.editFieldBackgroundColor
+                border.color: editableTableRoot.style.editFieldBorderColor
+                border.width: 2
+                radius: editableTableRoot.style.editFieldRadius
+            }
             Component.onCompleted: {
                 selectAll();
                 forceActiveFocus();
@@ -291,7 +361,9 @@ Item {
         }
 
         MouseArea {
+            id: cellMouseArea
             anchors.fill: parent
+            hoverEnabled: editableTableRoot.style.enableHoverEffects
             onClicked: tableView.selectionModel.setCurrentIndex(tableView.model.index(tableCell.row, tableCell.column), ItemSelectionModel.ClearsAndSelects)
         }
 
@@ -299,46 +371,87 @@ Item {
     }
     component RowNumberTile: Rectangle {
         id: verticalHeaderDelegate
-        implicitWidth: editableTableRoot.verticalHeaderWidth
-        implicitHeight: editableTableRoot.cellHeight
+        implicitWidth: editableTableRoot.style.verticalHeaderWidth
+        implicitHeight: editableTableRoot.style.cellHeight
         required property int index
-        color: editableTableRoot.headerBackgroundColor
-        border.width: editableTableRoot.verticalHeaderBorderWidth
-        border.color: editableTableRoot.headerBorderColor
+        color: editableTableRoot.style.headerBackgroundColor
+        border.width: editableTableRoot.style.verticalHeaderBorderWidth
+        border.color: editableTableRoot.style.headerBorderColor
         focus: false
         focusPolicy: Qt.NoFocus
+
+        // Subtle right border to separate from content (ShadCN style)
+        Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: editableTableRoot.style.verticalHeaderRightBorderWidth
+            color: editableTableRoot.style.headerBorderColor
+            opacity: 0.5  // Very subtle
+        }
 
         Text {
             focus: false
             focusPolicy: Qt.NoFocus
-            anchors.centerIn: parent
+            anchors.fill: parent
+            anchors.leftMargin: editableTableRoot.style.verticalHeaderPaddingHorizontal
+            anchors.rightMargin: editableTableRoot.style.verticalHeaderPaddingHorizontal
             text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole) || ""
-            font.bold: true
-            color: editableTableRoot.headerTextColor
+            font.pixelSize: editableTableRoot.style.verticalHeaderFontSize
+            font.weight: Font.Normal  // Normal weight for subtlety
+            color: editableTableRoot.style.headerTextColor
+            horizontalAlignment: editableTableRoot.style.rowNumberTextAlignment
+            verticalAlignment: Text.AlignVCenter
+            opacity: 0.6  // Muted appearance
         }
     }
 
     component ColumnTitleTile: Rectangle {
         id: horizontalHeaderDelegate
-        implicitWidth: editableTableRoot.columnDefaultWidth
-        implicitHeight: editableTableRoot.horizontalHeaderHeight
+        implicitWidth: editableTableRoot.style.columnDefaultWidth
+        implicitHeight: editableTableRoot.style.horizontalHeaderHeight
         required property int index
-        color: editableTableRoot.headerBackgroundColor
-        border.width: editableTableRoot.horizontalHeaderBorderWidth
-        border.color: editableTableRoot.headerBorderColor
+        color: headerMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects ?
+               editableTableRoot.style.headerHoverColor : editableTableRoot.style.headerBackgroundColor
+        border.width: editableTableRoot.style.horizontalHeaderBorderWidth
+        border.color: editableTableRoot.style.headerBorderColor
 
+        Behavior on color {
+            ColorAnimation { duration: 100 }
+        }
+
+        // ShadCN-style bottom border
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: editableTableRoot.style.horizontalHeaderBottomBorderWidth
+            color: editableTableRoot.style.headerBorderColor
+        }
+
+        // Content container with padding (ShadCN style: left-aligned with padding)
         Row {
-            anchors.centerIn: parent
-            spacing: editableTableRoot.headerTextSpacing
+            anchors.left: parent.left
+            anchors.leftMargin: editableTableRoot.style.horizontalHeaderPaddingHorizontal
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: parent.right
+            anchors.rightMargin: editableTableRoot.style.horizontalHeaderPaddingHorizontal
+            spacing: editableTableRoot.style.headerTextSpacing
 
             Text {
                 id: headerText
-                text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || ""
-                font.bold: true
-                color: editableTableRoot.headerTextColor
+                text: {
+                    let rawText = tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || "";
+                    return editableTableRoot.style.headerTextUppercase ? rawText.toUpperCase() : rawText;
+                }
+                font.pixelSize: editableTableRoot.style.headerFontSize
+                font.weight: editableTableRoot.style.headerFontWeight
+                color: editableTableRoot.style.headerTextColor
+                horizontalAlignment: editableTableRoot.style.headerTextAlignment
                 anchors.verticalCenter: parent.verticalCenter
                 wrapMode: Text.Wrap
                 clip: true
+                elide: Text.ElideRight
             }
 
             // Sort indicator (▲ ascending, ▼ descending)
@@ -353,14 +466,16 @@ Item {
                     }
                     return "";
                 }
-                font.pixelSize: editableTableRoot.sortIndicatorFontSize
-                color: editableTableRoot.headerTextColor
+                font.pixelSize: editableTableRoot.style.sortIndicatorFontSize
+                color: editableTableRoot.style.headerTextColor
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
 
         MouseArea {
+            id: headerMouseArea
             anchors.fill: parent
+            hoverEnabled: editableTableRoot.style.enableHoverEffects
             cursorShape: Qt.PointingHandCursor
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: function (mouse) {
