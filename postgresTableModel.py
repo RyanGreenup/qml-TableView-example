@@ -1,5 +1,5 @@
 import os
-from typing import Any, cast
+from typing import Any
 
 import polars as pl
 import psycopg2

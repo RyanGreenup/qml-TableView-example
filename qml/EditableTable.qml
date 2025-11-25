@@ -3,103 +3,31 @@ import QtQuick
 import QtQuick.Controls
 import Qt.labs.qmlmodels
 
-ApplicationWindow {
-    width: 800
-    height: 600
+Item {
     visible: true
-    // title: "Table View"
+    anchors.fill: parent
 
-    menuBar: MenuBar {
-        Menu {
-            title: "&Options"
-            Action {
-                text: "Enable Left-Click &Drag"
-                shortcut: "Ctrl+D"
-                checkable: true
-                checked: tableContainer.dragButtons === Qt.LeftButton
-                onTriggered: tableContainer.dragButtons = tableContainer.dragButtons === Qt.NoButton ? Qt.LeftButton : Qt.NoButton
-            }
-            Action {
-                text: "Enable &Resizing"
-                shortcut: "Ctrl+R"
-                checkable: true
-                checked: tableContainer.resizingEnabled
-                onTriggered: tableContainer.resizingEnabled = !tableContainer.resizingEnabled
-            }
-            Action {
-                text: "&Hide Headers"
-                shortcut: "Ctrl+H"
-                checkable: true
-                checked: tableContainer.hideHeaders
-                onTriggered: tableContainer.hideHeaders = !tableContainer.hideHeaders
-            }
-            Action {
-                text: "&Auto-Size Columns"
-                shortcut: "Ctrl+A"
-                checkable: true
-                checked: tableContainer.autoSizeColumns
-                onTriggered: {
-                    tableContainer.autoSizeColumns = !tableContainer.autoSizeColumns;
-                    tableView.forceLayout();
-                }
-            }
-            Action {
-                text: "Reset Column &Widths"
-                shortcut: "Ctrl+Shift+R"
-                onTriggered: {
-                    tableView.clearColumnWidths();
-                    tableView.forceLayout();
-                }
-            }
-        }
-        Menu {
-            title: "&Data"
-            Action {
-                text: "&Insert New Row"
-                shortcut: "Ctrl+N"
-                onTriggered: {
-                    // Insert before current row, or at end if no selection
-                    let insertPosition = tableView.selectionModel.currentIndex.row;
+    // Public API - expose configuration properties
+    property alias dragButtons: tableContainer.dragButtons
+    property alias resizingEnabled: tableContainer.resizingEnabled
+    property alias hideHeaders: tableContainer.hideHeaders
+    property alias autoSizeColumns: tableContainer.autoSizeColumns
 
-                    // Use addRow() - custom method with C++/Python-compatible API
-                    // This works identically when model is QML TableModel or C++/Python QAbstractTableModel
-                    // See model's addRow() implementation for C++/Python migration examples
-                    tableView.model.addRow(insertPosition);
-                }
-            }
-            Action {
-                text: "Insert &Multiple Rows"
-                shortcut: "Ctrl+Shift+N"
-                onTriggered: {
-                    // Insert before current row, or at end if no selection
-                    let insertPosition = tableView.selectionModel.currentIndex.row;
+    // Expose methods for programmatic access
+    function clearColumnWidths() {
+        tableView.clearColumnWidths();
+    }
 
-                    // Use addRows() - custom convenience method
-                    // Inserts 3 rows with default data at the specified position
-                    // See model's addRows() implementation for C++/Python migration examples
-                    tableView.model.addRows(insertPosition, 3);
-                }
-            }
-            Action {
-                text: "&Remove Current Row"
-                shortcut: "Ctrl+Shift+D"
-                enabled: tableView.selectionModel.currentIndex.row >= 0
-                onTriggered: {
-                    let rowToRemove = tableView.selectionModel.currentIndex.row;
+    function forceLayout() {
+        tableView.forceLayout();
+    }
 
-                    // Use removeRow() - standard Qt method that works for both:
-                    // - QML TableModel: removeRow(row, count=1) - returns undefined
-                    // - C++/Python QAbstractTableModel: removeRow(row, parent) -> returns bool
-                    let result = tableView.model.removeRow(rowToRemove);
+    function getModel() {
+        return tableView.model;
+    }
 
-                    // Check for explicit failure (false), not undefined
-                    // QML TableModel returns undefined, Python returns bool
-                    if (result === false) {
-                        console.error("[QML ERROR]: Failed to remove row", rowToRemove);
-                    }
-                }
-            }
-        }
+    function getSelectionModel() {
+        return tableView.selectionModel;
     }
 
     Item {
