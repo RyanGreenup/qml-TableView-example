@@ -260,6 +260,7 @@ Item {
         Label {
             id: cellLabel
             text: tableCell.display
+            wrapMode: Text.Wrap
             anchors.fill: parent
             verticalAlignment: Text.AlignVCenter
             leftPadding: editableTableRoot.cellPaddingHorizontal
@@ -336,6 +337,8 @@ Item {
                 font.bold: true
                 color: editableTableRoot.headerTextColor
                 anchors.verticalCenter: parent.verticalCenter
+                wrapMode: Text.Wrap
+                clip: true
             }
 
             // Sort indicator (▲ ascending, ▼ descending)
