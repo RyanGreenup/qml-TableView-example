@@ -1,0 +1,5 @@
+__pycache__
+.env
+iris_data.duckdb
+test_iris.duckdb
+test_iris_model.py
