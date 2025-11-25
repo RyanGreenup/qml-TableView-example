@@ -51,6 +51,16 @@ ApplicationWindow {
                     tableView.forceLayout();
                 }
             }
+            Action {
+                text: "&Wrap Cell Text"
+                shortcut: "Ctrl+W"
+                checkable: true
+                checked: tableContainer.wrapCellText
+                onTriggered: {
+                    tableContainer.wrapCellText = !tableContainer.wrapCellText;
+                    tableView.forceLayout();
+                }
+            }
         }
         Menu {
             title: "&Data"
@@ -187,6 +197,9 @@ ApplicationWindow {
         property int columnMaxWidth: 250
         property int columnDefaultWidth: 100
 
+        // Text wrapping in cells
+        property bool wrapCellText: false
+
         // Header Sort Indicator
         property int sortIndicatorFontSize: 10
         property int headerTextSpacing: 4  // Spacing between header text and sort indicator
@@ -210,14 +223,17 @@ ApplicationWindow {
 
             delegate: Rectangle {
                 id: horizontalHeaderDelegate
-                implicitWidth: tableContainer.columnDefaultWidth
-                implicitHeight: tableContainer.horizontalHeaderHeight
                 required property int index
                 color: tableContainer.headerBackgroundColor
                 border.width: tableContainer.horizontalHeaderBorderWidth
                 border.color: tableContainer.headerBorderColor
 
+                // Calculate implicit width based on header content
+                implicitWidth: headerRow.implicitWidth + tableContainer.cellPaddingHorizontal * 2
+                implicitHeight: tableContainer.horizontalHeaderHeight
+
                 Row {
+                    id: headerRow
                     anchors.centerIn: parent
                     spacing: tableContainer.headerTextSpacing
 
@@ -347,7 +363,7 @@ ApplicationWindow {
                 // Column width calculation with support for auto-sizing and user resizing
                 // Priority order:
                 // 1. explicitColumnWidth() - User manual resize (drag or double-click border)
-                // 2. implicitColumnWidth() - Auto-sized to content (if enabled)
+                // 2. implicitColumnWidth() - Auto-sized to content (if enabled), considering both header and cell widths
                 // 3. Fixed fallback (100px)
                 // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#columnWidthProvider-prop
                 columnWidthProvider: function (column) {
@@ -359,8 +375,17 @@ ApplicationWindow {
 
                     // If auto-sizing is enabled, use content-aware sizing
                     if (tableContainer.autoSizeColumns) {
+                        // Get the implicit width from cell content
                         let contentWidth = implicitColumnWidth(column);
-                        return Math.min(Math.max(tableContainer.columnMinWidth, contentWidth), tableContainer.columnMaxWidth);
+
+                        // Also consider the header width by accessing the header view's implicit width
+                        let headerWidth = hHeader.implicitColumnWidth(column);
+
+                        // Use the maximum of cell content and header width
+                        let autoWidth = Math.max(contentWidth, headerWidth);
+
+                        // Clamp to min/max constraints
+                        return Math.min(Math.max(tableContainer.columnMinWidth, autoWidth), tableContainer.columnMaxWidth);
                     }
 
                     // Fallback to fixed width when auto-sizing is disabled
@@ -387,7 +412,6 @@ ApplicationWindow {
 
                 delegate: Rectangle {
                     id: root
-                    implicitHeight: tableContainer.cellHeight
                     required property bool selected
                     required property bool current
                     required property bool editing
@@ -406,10 +430,21 @@ ApplicationWindow {
                         leftPadding: tableContainer.cellPaddingHorizontal
                         rightPadding: tableContainer.cellPaddingHorizontal
                         visible: !root.editing
+
+                        // Text wrapping configuration
+                        wrapMode: tableContainer.wrapCellText ? Text.WordWrap : Text.NoWrap
+                        elide: tableContainer.wrapCellText ? Text.ElideNone : Text.ElideRight
+                        clip: true
                     }
 
-                    // Set implicitWidth based on Label's content width + padding
-                    implicitWidth: cellLabel.implicitWidth + (tableContainer.cellPaddingHorizontal * 2)
+                    // Set implicit dimensions based on wrapping mode
+                    implicitWidth: tableContainer.wrapCellText ?
+                        tableContainer.columnDefaultWidth :
+                        cellLabel.implicitWidth + (tableContainer.cellPaddingHorizontal * 2)
+
+                    implicitHeight: tableContainer.wrapCellText ?
+                        Math.max(tableContainer.cellHeight, cellLabel.contentHeight + 4) :
+                        tableContainer.cellHeight
 
                     TableView.editDelegate: TextField {
                         anchors.fill: parent
