@@ -286,7 +286,7 @@ class PythonTableModel(QAbstractTableModel):
         return True
 
     @Slot(int, result=bool)
-    def addRow(self, row=-1):
+    def addRow(self, row: int = -1):
         """
         Custom convenience method - inserts a new row with default values.
 

@@ -19,6 +19,7 @@ Item {
     property bool resizingEnabled: true
     property int dragButtons: Qt.NoButton
     property bool autoSizeColumns: true
+    property bool showRowNumbers: true
 
     // ========================================================================
     // STYLING CONFIGURATION
@@ -117,17 +118,19 @@ Item {
         // Optional methods for enhanced functionality:
         //   - sort(column, order) - enable column sorting
         //   - insertRow/removeRow - enable row insertion/deletion
+        //     - MUST be aliased to `addRow(self, row: int = -1)`
         //   - Custom Q_INVOKABLE methods - callable from QML (e.g., doSomethingWithCell)
         // ========================================================================
         property var tableModel: null  // Set to your C++/Python model, or null to use ExampleTableModel
 
+        // Column Headers
         HorizontalHeaderView {
             id: hHeader
+            clip: true
             anchors.top: parent.top
             anchors.left: vHeader.right
             anchors.right: parent.right
             syncView: tableView
-            clip: true
             // Enables user column resizing (Qt 6.5+):
             // - Drag column border to manually resize
             // - Double-click column border to auto-fit to content
@@ -138,78 +141,13 @@ Item {
             acceptedButtons: editableTableRoot.dragButtons
             visible: !editableTableRoot.hideHeaders
 
-            delegate: Rectangle {
-                id: horizontalHeaderDelegate
-                implicitWidth: editableTableRoot.columnDefaultWidth
-                implicitHeight: editableTableRoot.horizontalHeaderHeight
-                required property int index
-                color: editableTableRoot.headerBackgroundColor
-                border.width: editableTableRoot.horizontalHeaderBorderWidth
-                border.color: editableTableRoot.headerBorderColor
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: editableTableRoot.headerTextSpacing
-
-                    Text {
-                        id: headerText
-                        text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || ""
-                        font.bold: true
-                        color: editableTableRoot.headerTextColor
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    // Sort indicator (▲ ascending, ▼ descending)
-                    Text {
-                        text: {
-                            // Check if model has sorting properties
-                            if (tableView.model.sortColumn === undefined)
-                                return "";
-
-                            if (tableView.model.sortColumn === horizontalHeaderDelegate.index) {
-                                return tableView.model.sortOrder === Qt.AscendingOrder ? "▲" : "▼";
-                            }
-                            return "";
-                        }
-                        font.pixelSize: editableTableRoot.sortIndicatorFontSize
-                        color: editableTableRoot.headerTextColor
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: function (mouse) {
-                        // Check if model supports sorting (duck typing - Qt convention)
-                        if (typeof tableView.model.sort !== 'function') {
-                            console.warn("Model does not implement sort() function");
-                            return;
-                        }
-
-                        // Right-click: clear sort (restore original order)
-                        if (mouse.button === Qt.RightButton) {
-                            if (typeof tableView.model.clearSort === 'function') {
-                                tableView.model.clearSort();
-                            }
-                            return;
-                        }
-
-                        // Left-click: Qt convention - toggle sort order on same column, ascending on new column
-                        let newOrder = Qt.AscendingOrder;
-                        if (tableView.model.sortColumn === horizontalHeaderDelegate.index) {
-                            // Same column: toggle between ascending/descending
-                            newOrder = tableView.model.sortOrder === Qt.AscendingOrder ? Qt.DescendingOrder : Qt.AscendingOrder;
-                        }
-                        tableView.model.sort(horizontalHeaderDelegate.index, newOrder);
-                    }
-                }
-            }
+            delegate: ColumnTitleTile {}
         }
 
+        // Row Numbers
         VerticalHeaderView {
             id: vHeader
+            clip: true
 
             // TODO clicking the Vertical HeaderView Steals focus from the Table
             focus: false
@@ -219,34 +157,15 @@ Item {
             anchors.left: parent.left
             anchors.bottom: parent.bottom
             syncView: tableView
-            clip: true
             resizableRows: editableTableRoot.resizingEnabled
             // qmllint disable missing-property
             acceptedButtons: editableTableRoot.dragButtons
-            visible: !editableTableRoot.hideHeaders
+            visible: editableTableRoot.showRowNumbers ? !editableTableRoot.hideHeaders : false
 
-            delegate: Rectangle {
-                id: verticalHeaderDelegate
-                implicitWidth: editableTableRoot.verticalHeaderWidth
-                implicitHeight: editableTableRoot.cellHeight
-                required property int index
-                color: editableTableRoot.headerBackgroundColor
-                border.width: editableTableRoot.verticalHeaderBorderWidth
-                border.color: editableTableRoot.headerBorderColor
-                focus: false
-                focusPolicy: Qt.NoFocus
-
-                Text {
-                    focus: false
-                    focusPolicy: Qt.NoFocus
-                    anchors.centerIn: parent
-                    text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole) || ""
-                    font.bold: true
-                    color: editableTableRoot.headerTextColor
-                }
-            }
+            delegate: RowNumberTile {}
         }
 
+        // The table itself
         Rectangle {
             anchors.top: editableTableRoot.hideHeaders ? parent.top : hHeader.bottom
             anchors.left: editableTableRoot.hideHeaders ? parent.left : vHeader.right
@@ -287,6 +206,7 @@ Item {
                     if (explicitWidth >= 0)
                         return explicitWidth;  // Honor user's manual resize
 
+                    // TODO we need to handle long title names too
                     // If auto-sizing is enabled, use content-aware sizing
                     if (editableTableRoot.autoSizeColumns) {
                         let contentWidth = implicitColumnWidth(column);
@@ -315,59 +235,150 @@ Item {
                     }
                 }
 
-                delegate: Rectangle {
-                    id: root
-                    implicitHeight: editableTableRoot.cellHeight
-                    required property bool selected
-                    required property bool current
-                    required property bool editing
-                    required property var display
-                    required property int row
-                    required property int column
-                    color: selected ? editableTableRoot.cellSelectedColor : editableTableRoot.cellBackgroundColor
-                    border.width: current ? editableTableRoot.cellBorderWidth : 0
-                    border.color: editableTableRoot.cellCurrentBorderColor
-                    clip: true
+                delegate: TableCell {}
+            }
+        }
+    }
 
-                    Label {
-                        id: cellLabel
-                        text: root.display
-                        anchors.fill: parent
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: editableTableRoot.cellPaddingHorizontal
-                        rightPadding: editableTableRoot.cellPaddingHorizontal
-                        visible: !root.editing
+    component TableCell: Rectangle {
+        id: tableCell
+        implicitHeight: editableTableRoot.cellHeight
+        required property bool selected
+        required property bool current
+        required property bool editing
+        required property var display
+        required property int row
+        required property int column
+        color: selected ? editableTableRoot.cellSelectedColor : editableTableRoot.cellBackgroundColor
+        border.width: current ? editableTableRoot.cellBorderWidth : 0
+        border.color: editableTableRoot.cellCurrentBorderColor
+        clip: true
+
+        Label {
+            id: cellLabel
+            text: tableCell.display
+            anchors.fill: parent
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: editableTableRoot.cellPaddingHorizontal
+            rightPadding: editableTableRoot.cellPaddingHorizontal
+            visible: !tableCell.editing
+        }
+
+        // Set implicitWidth based on Label's content width + padding
+        implicitWidth: cellLabel.implicitWidth + (editableTableRoot.cellPaddingHorizontal * 2)
+
+        TableView.editDelegate: TextField {
+            anchors.fill: parent
+            required property var display
+            required property int row
+            required property int column
+            text: display
+            Component.onCompleted: {
+                selectAll();
+                forceActiveFocus();
+            }
+            TableView.onCommit: {
+                // Handle C++ Models
+                tableView.model.setData(tableView.model.index(row, column), text, "edit");
+                // Required for QML Specific
+                tableView.model.setData(tableView.model.index(row, column), text, "display");
+            }
+            Keys.onEscapePressed: tableView.closeEditor()
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: tableView.selectionModel.setCurrentIndex(tableView.model.index(tableCell.row, tableCell.column), ItemSelectionModel.ClearsAndSelects)
+        }
+
+        objectName: "root"
+    }
+    component RowNumberTile: Rectangle {
+        id: verticalHeaderDelegate
+        implicitWidth: editableTableRoot.verticalHeaderWidth
+        implicitHeight: editableTableRoot.cellHeight
+        required property int index
+        color: editableTableRoot.headerBackgroundColor
+        border.width: editableTableRoot.verticalHeaderBorderWidth
+        border.color: editableTableRoot.headerBorderColor
+        focus: false
+        focusPolicy: Qt.NoFocus
+
+        Text {
+            focus: false
+            focusPolicy: Qt.NoFocus
+            anchors.centerIn: parent
+            text: tableView.model.headerData(verticalHeaderDelegate.index, Qt.Vertical, Qt.DisplayRole) || ""
+            font.bold: true
+            color: editableTableRoot.headerTextColor
+        }
+    }
+
+    component ColumnTitleTile: Rectangle {
+        id: horizontalHeaderDelegate
+        implicitWidth: editableTableRoot.columnDefaultWidth
+        implicitHeight: editableTableRoot.horizontalHeaderHeight
+        required property int index
+        color: editableTableRoot.headerBackgroundColor
+        border.width: editableTableRoot.horizontalHeaderBorderWidth
+        border.color: editableTableRoot.headerBorderColor
+
+        Row {
+            anchors.centerIn: parent
+            spacing: editableTableRoot.headerTextSpacing
+
+            Text {
+                id: headerText
+                text: tableView.model.headerData(horizontalHeaderDelegate.index, Qt.Horizontal, Qt.DisplayRole) || ""
+                font.bold: true
+                color: editableTableRoot.headerTextColor
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            // Sort indicator (▲ ascending, ▼ descending)
+            Text {
+                text: {
+                    // Check if model has sorting properties
+                    if (tableView.model.sortColumn === undefined)
+                        return "";
+
+                    if (tableView.model.sortColumn === horizontalHeaderDelegate.index) {
+                        return tableView.model.sortOrder === Qt.AscendingOrder ? "▲" : "▼";
                     }
-
-                    // Set implicitWidth based on Label's content width + padding
-                    implicitWidth: cellLabel.implicitWidth + (editableTableRoot.cellPaddingHorizontal * 2)
-
-                    TableView.editDelegate: TextField {
-                        anchors.fill: parent
-                        required property var display
-                        required property int row
-                        required property int column
-                        text: display
-                        Component.onCompleted: {
-                            selectAll();
-                            forceActiveFocus();
-                        }
-                        TableView.onCommit: {
-                            // Handle C++ Models
-                            tableView.model.setData(tableView.model.index(row, column), text, "edit");
-                            // Required for QML Specific
-                            tableView.model.setData(tableView.model.index(row, column), text, "display");
-                        }
-                        Keys.onEscapePressed: tableView.closeEditor()
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: tableView.selectionModel.setCurrentIndex(tableView.model.index(root.row, root.column), ItemSelectionModel.ClearsAndSelects)
-                    }
-
-                    objectName: "root"
+                    return "";
                 }
+                font.pixelSize: editableTableRoot.sortIndicatorFontSize
+                color: editableTableRoot.headerTextColor
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: function (mouse) {
+                // Check if model supports sorting (duck typing - Qt convention)
+                if (typeof tableView.model.sort !== 'function') {
+                    console.warn("Model does not implement sort() function");
+                    return;
+                }
+
+                // Right-click: clear sort (restore original order)
+                if (mouse.button === Qt.RightButton) {
+                    if (typeof tableView.model.clearSort === 'function') {
+                        tableView.model.clearSort();
+                    }
+                    return;
+                }
+
+                // Left-click: Qt convention - toggle sort order on same column, ascending on new column
+                let newOrder = Qt.AscendingOrder;
+                if (tableView.model.sortColumn === horizontalHeaderDelegate.index) {
+                    // Same column: toggle between ascending/descending
+                    newOrder = tableView.model.sortOrder === Qt.AscendingOrder ? Qt.DescendingOrder : Qt.AscendingOrder;
+                }
+                tableView.model.sort(horizontalHeaderDelegate.index, newOrder);
             }
         }
     }
@@ -383,6 +394,7 @@ Item {
         id: exampleModel
     }
 
+    // This is an arbitrary data model that is good for testing
     component ExampleTableModel: TableModel {
         // Single source of truth for column metadata
         readonly property var columnRoles: ["name", "color", "type", "age", "height", "weight", "speed", "origin", "pattern", "noise"]
