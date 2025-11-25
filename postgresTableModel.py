@@ -131,7 +131,9 @@ class PostgresTableModel(QAbstractTableModel):
 
         if orientation == Qt.Orientation.Horizontal:
             if 0 <= section < len(self._df.columns):
-                return self._df.columns[section]
+                # Convert snake_case to Sentence case (e.g., "task_date" -> "Task date")
+                col_name = self._df.columns[section]
+                return col_name.replace("_", " ").capitalize()
         elif orientation == Qt.Orientation.Vertical:
             return section + 1
 

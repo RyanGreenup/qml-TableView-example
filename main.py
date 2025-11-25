@@ -38,17 +38,12 @@ def main(
     else:
         table_model = PythonTableModel()
 
-    # Setup QML
-    engine.rootContext().setContextProperty("pythonModel", table_model)
+    # Setup QML - expose model to QML context before loading
+    engine.rootContext().setContextProperty("customTableModel", table_model)
     engine.load(Path("main.qml"))
 
     if not engine.rootObjects():
         sys.exit(-1)
-
-    # Connect model to table
-    root = engine.rootObjects()[0]
-    if table_container := root.findChild(QObject, "tableContainer"):
-        table_container.setProperty("tableModel", table_model)
 
     sys.exit(app.exec())
 

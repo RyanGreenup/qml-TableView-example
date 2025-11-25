@@ -104,5 +104,7 @@ ApplicationWindow {
 
     EditableTable {
         id: editableTable
+        // Use custom model from Python if available, otherwise use built-in example
+        tableModel: typeof customTableModel !== 'undefined' ? customTableModel : null
     }
 }

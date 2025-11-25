@@ -12,6 +12,9 @@ Item {
     // PUBLIC API - Configuration Properties
     // ========================================================================
 
+    // Data Model
+    property alias tableModel: tableContainer.tableModel
+
     // ========================================================================
     // BEHAVIOR CONFIGURATION
     // ========================================================================
