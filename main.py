@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication
 
 from tableModel import PythonTableModel
 from irisTableModel import IrisTableModel
+from postgresTableModel import PostgresTableModel
 
 app_typer = typer.Typer()
 
@@ -18,6 +19,7 @@ app_typer = typer.Typer()
 class ModelType(str, Enum):
     python = "python"
     iris = "iris"
+    postgres = "postgres"
 
 
 @app_typer.command()
@@ -29,11 +31,12 @@ def main(
     engine = QQmlApplicationEngine()
 
     # Create model
-    table_model = (
-        IrisTableModel(db_path=db_path)
-        if model == ModelType.iris
-        else PythonTableModel()
-    )
+    if model == ModelType.iris:
+        table_model = IrisTableModel(db_path=db_path)
+    elif model == ModelType.postgres:
+        table_model = PostgresTableModel()
+    else:
+        table_model = PythonTableModel()
 
     # Setup QML
     engine.rootContext().setContextProperty("pythonModel", table_model)
