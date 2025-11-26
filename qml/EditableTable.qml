@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Qt.labs.qmlmodels
+import QtQuick.Controls.Basic
 
 FocusScope {
     id: editableTableRoot
@@ -57,6 +58,7 @@ FocusScope {
     property int dragButtons: Qt.NoButton
     property bool autoSizeColumns: true
     property bool showRowNumbers: true
+    property bool enableVimBindings: false  // Enable h/j/k/l vim navigation
 
     // ========================================================================
     // FOCUS CONFIGURATION
@@ -405,6 +407,10 @@ FocusScope {
                     }
 
                     Keys.onPressed: function (event) {
+                        console.log("Keys.onPressed - key:", event.key, "text:", event.text, "modifiers:", event.modifiers);
+                        console.log("enableVimBindings:", editableTableRoot.enableVimBindings);
+                        console.log("Qt.Key_H:", Qt.Key_H, "Qt.Key_J:", Qt.Key_J, "Qt.Key_K:", Qt.Key_K, "Qt.Key_L:", Qt.Key_L);
+
                         if (event.key === Qt.Key_F2) {
                             tableView.edit(tableView.model.index(selectionModel.currentIndex.row, selectionModel.currentIndex.column));
                             event.accepted = true;
@@ -419,6 +425,95 @@ FocusScope {
                             // let cellContent = tableView.model.data(index);
                             tableView.model.doSomethingWithCell(index);
                             event.accepted = true;
+                        }
+
+                        // Vim keybindings: h/j/k/l for left/down/up/right navigation
+                        if (editableTableRoot.enableVimBindings) {
+                            console.log("Vim bindings enabled, checking keys...");
+                            let currentRow = selectionModel.currentIndex.row;
+                            let currentCol = selectionModel.currentIndex.column;
+                            let newIndex = null;
+                            let shiftPressed = event.modifiers & Qt.ShiftModifier;
+
+                            if (event.key === Qt.Key_H) {
+                                console.log("H key pressed - moving left");
+                                let newCol = Math.max(0, currentCol - 1);
+                                newIndex = tableView.model.index(currentRow, newCol);
+                                event.accepted = true;
+                            }
+                            else if (event.key === Qt.Key_J) {
+                                console.log("J key pressed - moving down");
+                                let newRow = Math.min(tableView.model.rowCount - 1, currentRow + 1);
+                                newIndex = tableView.model.index(newRow, currentCol);
+                                event.accepted = true;
+                            }
+                            else if (event.key === Qt.Key_K) {
+                                console.log("K key pressed - moving up");
+                                let newRow = Math.max(0, currentRow - 1);
+                                newIndex = tableView.model.index(newRow, currentCol);
+                                event.accepted = true;
+                            }
+                            else if (event.key === Qt.Key_L) {
+                                console.log("L key pressed - moving right");
+                                let newCol = Math.min(tableView.model.columnCount - 1, currentCol + 1);
+                                newIndex = tableView.model.index(currentRow, newCol);
+                                event.accepted = true;
+                            }
+
+                            if (newIndex && newIndex.valid) {
+                                if (shiftPressed) {
+                                    console.log("Shift pressed, creating rectangular selection");
+                                    // Use current index as anchor if we only have one cell selected
+                                    // (which means this is the first shift+move)
+                                    let anchorRow = currentRow;
+                                    let anchorCol = currentCol;
+
+                                    // If we already have multiple cells selected, find the opposite corner
+                                    if (selectionModel.hasSelection && selectionModel.selectedIndexes.length > 1) {
+                                        // Keep the existing anchor by finding the corner opposite to current
+                                        let indices = selectionModel.selectedIndexes;
+                                        let minRow = indices[0].row;
+                                        let maxRow = indices[0].row;
+                                        let minCol = indices[0].column;
+                                        let maxCol = indices[0].column;
+
+                                        for (let i = 1; i < indices.length; i++) {
+                                            minRow = Math.min(minRow, indices[i].row);
+                                            maxRow = Math.max(maxRow, indices[i].row);
+                                            minCol = Math.min(minCol, indices[i].column);
+                                            maxCol = Math.max(maxCol, indices[i].column);
+                                        }
+
+                                        // Anchor is the opposite corner from current position
+                                        anchorRow = (currentRow === minRow) ? maxRow : minRow;
+                                        anchorCol = (currentCol === minCol) ? maxCol : minCol;
+                                    }
+
+                                    console.log("Anchor:", anchorRow, anchorCol, "New:", newIndex.row, newIndex.column);
+
+                                    // Calculate rectangle bounds from anchor to new position
+                                    let rectMinRow = Math.min(anchorRow, newIndex.row);
+                                    let rectMaxRow = Math.max(anchorRow, newIndex.row);
+                                    let rectMinCol = Math.min(anchorCol, newIndex.column);
+                                    let rectMaxCol = Math.max(anchorCol, newIndex.column);
+
+                                    console.log("Selecting rectangle:", rectMinRow, rectMinCol, "to", rectMaxRow, rectMaxCol);
+
+                                    // Clear and select all cells in rectangle
+                                    selectionModel.clear();
+                                    for (let r = rectMinRow; r <= rectMaxRow; r++) {
+                                        for (let c = rectMinCol; c <= rectMaxCol; c++) {
+                                            let cellIndex = tableView.model.index(r, c);
+                                            selectionModel.select(cellIndex, ItemSelectionModel.Select);
+                                        }
+                                    }
+                                    selectionModel.setCurrentIndex(newIndex, ItemSelectionModel.NoUpdate);
+                                } else {
+                                    console.log("No shift, clearing selection and moving");
+                                    selectionModel.setCurrentIndex(newIndex, ItemSelectionModel.ClearsAndSelects);
+                                }
+                                tableView.positionViewAtCell(newIndex.column, newIndex.row, TableView.Visible);
+                            }
                         }
 
                         if (editableTableRoot.focusNavWithTab) {
