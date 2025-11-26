@@ -555,13 +555,23 @@ FocusScope {
             id: cellMouseArea
             anchors.fill: parent
             hoverEnabled: editableTableRoot.style.enableHoverEffects
-            onClicked: {
-                let cellIndex = tableView.model.index(tableCell.row, tableCell.column);
-                tableView.selectionModel.setCurrentIndex(cellIndex, ItemSelectionModel.ClearsAndSelects);
+            acceptedButtons: Qt.LeftButton
 
-                if (editableTableRoot.focusOnClick) {
-                    editableTableRoot.forceActiveFocus();
+            onPressed: function(mouse) {
+                // Only handle single clicks (not drag selection)
+                if (!mouse.modifiers) {
+                    let cellIndex = tableView.model.index(tableCell.row, tableCell.column);
+
+                    // Clear all selection and select only this cell
+                    tableView.selectionModel.clear();
+                    tableView.selectionModel.setCurrentIndex(cellIndex, ItemSelectionModel.Select);
+
+                    if (editableTableRoot.focusOnClick) {
+                        editableTableRoot.forceActiveFocus();
+                    }
                 }
+                // Let the event propagate for drag selection
+                mouse.accepted = false;
             }
         }
 
@@ -705,6 +715,7 @@ FocusScope {
 
     SelectionRectangle {
         target: tableView
+        selectionMode: SelectionRectangle.Drag
     }
 
     // Default example model (used when editableTableRoot.tableModel is null)
