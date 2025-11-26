@@ -35,6 +35,9 @@ FocusScope {
     property bool focusOnHover: false
     // Whether to focus the table when clicked
     property bool focusOnClick: true
+    // Whether tab should focus next/previous widgets as is convention, or should move between cells
+    // When keyNavigationEnabled is true, Tab will move cells instead of widgets, this overrides that
+    property bool focusNavWithTab: true
 
     // ========================================================================
     // STYLING CONFIGURATION - Default Style Object
@@ -335,6 +338,21 @@ FocusScope {
                             tableView.model.doSomethingWithCell(index);
                             event.accepted = true;
                         }
+
+                        if (editableTableRoot.focusNavWithTab) {
+                            if (event.key === Qt.Key_Tab) {
+                                console.log("Tab Detected");
+                                // Tab: move focus to next item
+                                tableView.nextItemInFocusChain(true).forceActiveFocus();
+                                event.accepted = true;
+                            }
+                            if (event.key === Qt.Key_Backtab) {
+                                console.log("Shift+Tab (Backtab) Detected");
+                                // Shift+Tab: move focus to previous item
+                                tableView.nextItemInFocusChain(false).forceActiveFocus();
+                                event.accepted = true;
+                            }
+                        }
                     }
 
                     delegate: TableCell {}
@@ -454,10 +472,7 @@ FocusScope {
     component RowNumberTile: Rectangle {
         id: verticalHeaderDelegate
         // Auto-size width based on text content + padding, with minimum width
-        implicitWidth: Math.max(
-            editableTableRoot.style.verticalHeaderMinWidth,
-            rowNumberText.implicitWidth + (editableTableRoot.style.verticalHeaderPaddingHorizontal * 2)
-        )
+        implicitWidth: Math.max(editableTableRoot.style.verticalHeaderMinWidth, rowNumberText.implicitWidth + (editableTableRoot.style.verticalHeaderPaddingHorizontal * 2))
         implicitHeight: editableTableRoot.style.cellHeight
         required property int index
         color: editableTableRoot.style.headerBackgroundColor
