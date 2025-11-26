@@ -3,10 +3,11 @@ import QtQuick
 import QtQuick.Controls
 import Qt.labs.qmlmodels
 
-Item {
+FocusScope {
     id: editableTableRoot
     visible: true
     anchors.fill: parent
+    activeFocusOnTab: true
 
     // ========================================================================
     // PUBLIC API - Configuration Properties
@@ -23,6 +24,17 @@ Item {
     property int dragButtons: Qt.NoButton
     property bool autoSizeColumns: true
     property bool showRowNumbers: true
+
+    // ========================================================================
+    // FOCUS CONFIGURATION
+    // ========================================================================
+    // Whether to show the focus border when the table has active focus.
+    // Set to false when the parent component (e.g., Card) provides its own focus indicator.
+    property bool showFocusBorder: true
+    // Whether to focus the table on hover
+    property bool focusOnHover: false
+    // Whether to focus the table when clicked
+    property bool focusOnClick: true
 
     // ========================================================================
     // STYLING CONFIGURATION - Default Style Object
@@ -45,6 +57,7 @@ Item {
         property color cellCurrentBorderColor: palette.highlight
 
         // Table
+        // Focus border color - shown when table has activeFocus and showFocusBorder is true
         property color tableFocusBorderColor: palette.highlight
         property color tableBackgroundColor: "transparent"
 
@@ -123,163 +136,211 @@ Item {
         return tableView.selectionModel;
     }
 
-    Item {
-        id: tableContainer
-        objectName: "tableContainer"
+    // Outer rectangle only handles the focus border
+    Rectangle {
+        id: focusBorder
+
+        function getBorderColor() {
+            let shouldShowBorder = editableTableRoot.showFocusBorder && editableTableRoot.activeFocus;
+            if (shouldShowBorder) {
+                return editableTableRoot.style.tableFocusBorderColor;
+            }
+            return "transparent";
+        }
+
+        color: "transparent"
+        border.width: editableTableRoot.style.tableFocusBorderWidth
+        border.color: getBorderColor()
+        anchors.margins: editableTableRoot.style.tableFocusBorderWidth
         anchors.fill: parent
 
-        // ========================================================================
-        // DATA MODEL CONFIGURATION
-        // ========================================================================
-        // The table model can be set from C++/Python or use the default example model.
-        //
-        // USAGE FROM C++/PYTHON:
-        //   QML side:
-        //     editableTableRoot.tableModel = myCustomModel
-        //
-        //   Python (PySide6) example:
-        //     from PySide6.QtCore import QAbstractTableModel, Qt
-        //     engine.rootContext().setContextProperty("myCustomModel", MyTableModel())
-        //
-        //   C++ example:
-        //     engine.rootContext()->setContextProperty("myCustomModel", new MyTableModel());
-        //
-        // The model should implement QAbstractTableModel or QAbstractItemModel:
-        //   - data(QModelIndex, role) - return cell data
-        //   - setData(QModelIndex, value, role) - handle cell editing
-        //   - headerData(section, orientation, role) - return header labels
-        //   - rowCount(), columnCount() - return dimensions
-        //
-        // Optional methods for enhanced functionality:
-        //   - sort(column, order) - enable column sorting
-        //   - insertRow/removeRow - enable row insertion/deletion
-        //     - MUST be aliased to `addRow(self, row: int = -1)`
-        //   - Custom Q_INVOKABLE methods - callable from QML (e.g., doSomethingWithCell)
-        // ========================================================================
-        property var tableModel: null  // Set to your C++/Python model, or null to use ExampleTableModel
-
-        // Column Headers
-        HorizontalHeaderView {
-            id: hHeader
-            clip: true
-            anchors.top: parent.top
-            anchors.left: editableTableRoot.showRowNumbers ? vHeader.right : parent.left
-            anchors.right: parent.right
-            syncView: tableView
-            // Enables user column resizing (Qt 6.5+):
-            // - Drag column border to manually resize
-            // - Double-click column border to auto-fit to content
-            // Resized widths are stored via setColumnWidth() and retrieved via explicitColumnWidth()
-            // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#resizableColumns-prop
-            resizableColumns: editableTableRoot.resizingEnabled
-            // qmllint disable missing-property
-            acceptedButtons: editableTableRoot.dragButtons
-            visible: !editableTableRoot.hideHeaders
-
-            delegate: ColumnTitleTile {}
-        }
-
-        // Row Numbers
-        VerticalHeaderView {
-            id: vHeader
-            clip: true
-
-            // TODO clicking the Vertical HeaderView Steals focus from the Table
-            focus: false
-            focusPolicy: Qt.NoFocus
-
-            anchors.top: hHeader.bottom
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
-            syncView: tableView
-            resizableRows: editableTableRoot.resizingEnabled
-            // qmllint disable missing-property
-            acceptedButtons: editableTableRoot.dragButtons
-            // Show row numbers only if: enabled AND headers not hidden
-            visible: editableTableRoot.showRowNumbers && !editableTableRoot.hideHeaders
-
-            delegate: RowNumberTile {}
-        }
-
-        // The table itself
-        Rectangle {
-            anchors.top: editableTableRoot.hideHeaders ? parent.top : hHeader.bottom
-            anchors.left: {
-                // Priority: hideHeaders trumps showRowNumbers
-                if (editableTableRoot.hideHeaders) {
-                    return parent.left;
-                }
-                // If headers visible, check if row numbers should be shown
-                return editableTableRoot.showRowNumbers ? vHeader.right : parent.left;
+        Behavior on border.color {
+            ColorAnimation {
+                duration: 150
             }
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            border.width: tableView.focus ? editableTableRoot.style.tableFocusBorderWidth : 0
-            border.color: editableTableRoot.style.tableFocusBorderColor
-            color: editableTableRoot.style.tableBackgroundColor
-            radius: editableTableRoot.style.tableRadius
+        }
 
-            TableView {
-                id: tableView
-                anchors.fill: parent
+        Rectangle {
+            id: tableContainer
+            objectName: "tableContainer"
+            anchors.fill: parent
+            anchors.margins: editableTableRoot.style.tableFocusBorderWidth
+            color: "transparent"
+
+            // ========================================================================
+            // DATA MODEL CONFIGURATION
+            // ========================================================================
+            // The table model can be set from C++/Python or use the default example model.
+            //
+            // USAGE FROM C++/PYTHON:
+            //   QML side:
+            //     editableTableRoot.tableModel = myCustomModel
+            //
+            //   Python (PySide6) example:
+            //     from PySide6.QtCore import QAbstractTableModel, Qt
+            //     engine.rootContext().setContextProperty("myCustomModel", MyTableModel())
+            //
+            //   C++ example:
+            //     engine.rootContext()->setContextProperty("myCustomModel", new MyTableModel());
+            //
+            // The model should implement QAbstractTableModel or QAbstractItemModel:
+            //   - data(QModelIndex, role) - return cell data
+            //   - setData(QModelIndex, value, role) - handle cell editing
+            //   - headerData(section, orientation, role) - return header labels
+            //   - rowCount(), columnCount() - return dimensions
+            //
+            // Optional methods for enhanced functionality:
+            //   - sort(column, order) - enable column sorting
+            //   - insertRow/removeRow - enable row insertion/deletion
+            //     - MUST be aliased to `addRow(self, row: int = -1)`
+            //   - Custom Q_INVOKABLE methods - callable from QML (e.g., doSomethingWithCell)
+            // ========================================================================
+            property var tableModel: null  // Set to your C++/Python model, or null to use ExampleTableModel
+
+            // Column Headers
+            HorizontalHeaderView {
+                id: hHeader
                 clip: true
-                interactive: true
+                anchors.top: parent.top
+                anchors.left: editableTableRoot.showRowNumbers ? vHeader.right : parent.left
+                anchors.right: parent.right
+                syncView: tableView
+                // Enables user column resizing (Qt 6.5+):
+                // - Drag column border to manually resize
+                // - Double-click column border to auto-fit to content
+                // Resized widths are stored via setColumnWidth() and retrieved via explicitColumnWidth()
+                // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#resizableColumns-prop
+                resizableColumns: editableTableRoot.resizingEnabled
                 // qmllint disable missing-property
                 acceptedButtons: editableTableRoot.dragButtons
-                rowSpacing: editableTableRoot.style.tableRowSpacing
-                columnSpacing: editableTableRoot.style.tableColumnSpacing
-                focus: true
-                editTriggers: TableView.DoubleTapped | TableView.EditKeyPressed
+                visible: !editableTableRoot.hideHeaders
 
-                // Use custom model if provided, otherwise fallback to example model
-                model: editableTableRoot.tableModel ?? exampleModel
-                selectionModel: ItemSelectionModel {
-                    model: tableView.model
+                delegate: ColumnTitleTile {}
+            }
+
+            // Row Numbers
+            VerticalHeaderView {
+                id: vHeader
+                clip: true
+
+                // TODO clicking the Vertical HeaderView Steals focus from the Table
+                focus: false
+                focusPolicy: Qt.NoFocus
+
+                anchors.top: hHeader.bottom
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                syncView: tableView
+                resizableRows: editableTableRoot.resizingEnabled
+                // qmllint disable missing-property
+                acceptedButtons: editableTableRoot.dragButtons
+                // Show row numbers only if: enabled AND headers not hidden
+                visible: editableTableRoot.showRowNumbers && !editableTableRoot.hideHeaders
+
+                delegate: RowNumberTile {}
+            }
+
+            // The table itself
+            Rectangle {
+                anchors.top: editableTableRoot.hideHeaders ? parent.top : hHeader.bottom
+                anchors.left: {
+                    // Priority: hideHeaders trumps showRowNumbers
+                    if (editableTableRoot.hideHeaders) {
+                        return parent.left;
+                    }
+                    // If headers visible, check if row numbers should be shown
+                    return editableTableRoot.showRowNumbers ? vHeader.right : parent.left;
+                }
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                color: editableTableRoot.style.tableBackgroundColor
+                radius: editableTableRoot.style.tableRadius
+
+                // Capture clicks on empty space to give focus to the table
+                MouseArea {
+                    anchors.fill: parent
+                    z: -1
+                    onClicked: {
+                        if (editableTableRoot.focusOnClick) {
+                            editableTableRoot.forceActiveFocus();
+                        }
+                    }
                 }
 
-                // Column width calculation with support for auto-sizing and user resizing
-                // Priority order:
-                // 1. explicitColumnWidth() - User manual resize (drag or double-click border)
-                // 2. implicitColumnWidth() - Auto-sized to content (if enabled)
-                // 3. Fixed fallback (100px)
-                // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#columnWidthProvider-prop
-                columnWidthProvider: function (column) {
-                    // First check if user manually resized this column (via drag or double-click)
-                    // Double-click on column border auto-fits and stores result via setColumnWidth()
-                    let explicitWidth = explicitColumnWidth(column);
-                    if (explicitWidth >= 0)
-                        return explicitWidth;  // Honor user's manual resize
-
-                    // TODO we need to handle long title names too
-                    // If auto-sizing is enabled, use content-aware sizing
-                    if (editableTableRoot.autoSizeColumns) {
-                        let contentWidth = implicitColumnWidth(column);
-                        return Math.min(Math.max(editableTableRoot.style.columnMinWidth, contentWidth), editableTableRoot.style.columnMaxWidth);
-                    }
-
-                    // Fallback to fixed width when auto-sizing is disabled
-                    return editableTableRoot.style.columnDefaultWidth;
-                }
-
-                Keys.onPressed: function (event) {
-                    if (event.key === Qt.Key_F2) {
-                        tableView.edit(tableView.model.index(selectionModel.currentIndex.row, selectionModel.currentIndex.column));
-                        event.accepted = true;
-                    }
-                    if (event.key === Qt.Key_F1) {
-                        // We can extract coumn and row and content
-                        let col = selectionModel.currentIndex.column;
-                        let row = selectionModel.currentIndex.row;
-                        let index = tableView.model.index(row, col);
-
-                        // It's Convention to only pass the index back to the Model
-                        // let cellContent = tableView.model.data(index);
-                        tableView.model.doSomethingWithCell(index);
-                        event.accepted = true;
+                // Focus on hover handler
+                HoverHandler {
+                    enabled: editableTableRoot.focusOnHover
+                    onHoveredChanged: {
+                        if (hovered) {
+                            editableTableRoot.forceActiveFocus();
+                        }
                     }
                 }
 
-                delegate: TableCell {}
+                TableView {
+                    id: tableView
+                    anchors.fill: parent
+                    clip: true
+                    interactive: true
+                    // qmllint disable missing-property
+                    acceptedButtons: editableTableRoot.dragButtons
+                    rowSpacing: editableTableRoot.style.tableRowSpacing
+                    columnSpacing: editableTableRoot.style.tableColumnSpacing
+                    focus: true
+                    editTriggers: TableView.DoubleTapped | TableView.EditKeyPressed
+
+                    // Use custom model if provided, otherwise fallback to example model
+                    model: editableTableRoot.tableModel ?? exampleModel
+                    selectionModel: ItemSelectionModel {
+                        model: tableView.model
+                    }
+
+                    // Column width calculation with support for auto-sizing and user resizing
+                    // Priority order:
+                    // 1. explicitColumnWidth() - User manual resize (drag or double-click border)
+                    // 2. implicitColumnWidth() - Auto-sized to content (if enabled)
+                    // 3. Fixed fallback (100px)
+                    // https://doc.qt.io/qt-6/qml-qtquick-tableview.html#columnWidthProvider-prop
+                    columnWidthProvider: function (column) {
+                        // First check if user manually resized this column (via drag or double-click)
+                        // Double-click on column border auto-fits and stores result via setColumnWidth()
+                        let explicitWidth = explicitColumnWidth(column);
+                        if (explicitWidth >= 0)
+                            return explicitWidth;  // Honor user's manual resize
+
+                        // TODO we need to handle long title names too
+                        // If auto-sizing is enabled, use content-aware sizing
+                        if (editableTableRoot.autoSizeColumns) {
+                            let contentWidth = implicitColumnWidth(column);
+                            return Math.min(Math.max(editableTableRoot.style.columnMinWidth, contentWidth), editableTableRoot.style.columnMaxWidth);
+                        }
+
+                        // Fallback to fixed width when auto-sizing is disabled
+                        return editableTableRoot.style.columnDefaultWidth;
+                    }
+
+                    Keys.onPressed: function (event) {
+                        if (event.key === Qt.Key_F2) {
+                            tableView.edit(tableView.model.index(selectionModel.currentIndex.row, selectionModel.currentIndex.column));
+                            event.accepted = true;
+                        }
+                        if (event.key === Qt.Key_F1) {
+                            // We can extract coumn and row and content
+                            let col = selectionModel.currentIndex.column;
+                            let row = selectionModel.currentIndex.row;
+                            let index = tableView.model.index(row, col);
+
+                            // It's Convention to only pass the index back to the Model
+                            // let cellContent = tableView.model.data(index);
+                            tableView.model.doSomethingWithCell(index);
+                            event.accepted = true;
+                        }
+                    }
+
+                    delegate: TableCell {}
+                    // Simple alternative:
+                    // delegate: TableViewDelegate {}
+                }
             }
         }
     }
@@ -302,16 +363,30 @@ Item {
             return editableTableRoot.style.cellBackgroundColor;
         }
 
-        color: selected ? editableTableRoot.style.cellSelectedColor :
-               (cellMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects) ?
-               editableTableRoot.style.cellHoverColor : baseColor
+        // Determine cell background color based on state priority:
+        // 1. Selected (highest priority)
+        // 2. Hovered (if hover effects enabled)
+        // 3. Base color (default, respects alternating rows)
+        function getCellColor() {
+            if (selected) {
+                return editableTableRoot.style.cellSelectedColor;
+            }
+            if (cellMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects) {
+                return editableTableRoot.style.cellHoverColor;
+            }
+            return baseColor;
+        }
+
+        color: getCellColor()
         border.width: current ? editableTableRoot.style.cellBorderWidth : 0
         border.color: editableTableRoot.style.cellCurrentBorderColor
         radius: editableTableRoot.style.cellRadius
         clip: true
 
         Behavior on color {
-            ColorAnimation { duration: 100 }
+            ColorAnimation {
+                duration: 100
+            }
         }
 
         Label {
@@ -364,7 +439,14 @@ Item {
             id: cellMouseArea
             anchors.fill: parent
             hoverEnabled: editableTableRoot.style.enableHoverEffects
-            onClicked: tableView.selectionModel.setCurrentIndex(tableView.model.index(tableCell.row, tableCell.column), ItemSelectionModel.ClearsAndSelects)
+            onClicked: {
+                let cellIndex = tableView.model.index(tableCell.row, tableCell.column);
+                tableView.selectionModel.setCurrentIndex(cellIndex, ItemSelectionModel.ClearsAndSelects);
+
+                if (editableTableRoot.focusOnClick) {
+                    editableTableRoot.forceActiveFocus();
+                }
+            }
         }
 
         objectName: "root"
@@ -411,13 +493,14 @@ Item {
         implicitWidth: editableTableRoot.style.columnDefaultWidth
         implicitHeight: editableTableRoot.style.horizontalHeaderHeight
         required property int index
-        color: headerMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects ?
-               editableTableRoot.style.headerHoverColor : editableTableRoot.style.headerBackgroundColor
+        color: headerMouseArea.containsMouse && editableTableRoot.style.enableHoverEffects ? editableTableRoot.style.headerHoverColor : editableTableRoot.style.headerBackgroundColor
         border.width: editableTableRoot.style.horizontalHeaderBorderWidth
         border.color: editableTableRoot.style.headerBorderColor
 
         Behavior on color {
-            ColorAnimation { duration: 100 }
+            ColorAnimation {
+                duration: 100
+            }
         }
 
         // ShadCN-style bottom border
