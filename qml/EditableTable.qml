@@ -10,6 +10,39 @@ FocusScope {
     activeFocusOnTab: true
 
     // ========================================================================
+    // FOCUS MANAGEMENT
+    // ========================================================================
+    // When FocusScope receives activeFocus (e.g., via Tab), forward it to the TableView
+    // This ensures arrow key navigation works immediately without extra Tab presses
+    onActiveFocusChanged: {
+        if (activeFocus) {
+            tableView.forceActiveFocus();
+        }
+    }
+
+    // Determine whether the border should be shown
+    // Check tableView.activeFocus since focus is forwarded there from the FocusScope
+    property bool shouldShowBorder: editableTableRoot.showFocusBorder && tableView.activeFocus
+
+    // Logic to focus next widtet
+    function focusNextWidget() {
+        // Tab forward: tableView.nextItemInFocusChain(true) correctly skips
+        // past internal HeaderViews to the next external widget
+        tableView.nextItemInFocusChain(true).forceActiveFocus();
+    }
+
+    function focusPrevWidget() {
+        // Backtab: Use editableTableRoot because tableView.nextItemInFocusChain(false)
+        // returns VerticalHeaderView (internal), while editableTableRoot returns
+        // the actual previous widget in the UI.
+        // Although VerticalHeaderView has `activeFocusOnTab: false` [fn: 1]
+        // so this should still do the same thing:
+        //
+        // tableView.nextItemInFocusChain(false).forceActiveFocus();
+        editableTableRoot.nextItemInFocusChain(false).forceActiveFocus();
+    }
+
+    // ========================================================================
     // PUBLIC API - Configuration Properties
     // ========================================================================
 
@@ -144,8 +177,7 @@ FocusScope {
         id: focusBorder
 
         function getBorderColor() {
-            let shouldShowBorder = editableTableRoot.showFocusBorder && editableTableRoot.activeFocus;
-            if (shouldShowBorder) {
+            if (editableTableRoot.shouldShowBorder) {
                 return editableTableRoot.style.tableFocusBorderColor;
             }
             return "transparent";
@@ -204,6 +236,7 @@ FocusScope {
             HorizontalHeaderView {
                 id: hHeader
                 clip: true
+                activeFocusOnTab: false // [fn: 1]
                 anchors.top: parent.top
                 anchors.left: editableTableRoot.showRowNumbers ? vHeader.right : parent.left
                 anchors.right: parent.right
@@ -225,11 +258,9 @@ FocusScope {
             VerticalHeaderView {
                 id: vHeader
                 clip: true
+                activeFocusOnTab: false // [fn: 1]
 
-                // TODO clicking the Vertical HeaderView Steals focus from the Table
                 focus: false
-                focusPolicy: Qt.NoFocus
-
                 anchors.top: hHeader.bottom
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
@@ -341,15 +372,13 @@ FocusScope {
 
                         if (editableTableRoot.focusNavWithTab) {
                             if (event.key === Qt.Key_Tab) {
-                                console.log("Tab Detected");
-                                // Tab: move focus to next item
-                                tableView.nextItemInFocusChain(true).forceActiveFocus();
+                                // Tab forward: tableView.nextItemInFocusChain(true) correctly skips
+                                // past internal HeaderViews to the next external widget
+                                editableTableRoot.focusNextWidget();
                                 event.accepted = true;
                             }
                             if (event.key === Qt.Key_Backtab) {
-                                console.log("Shift+Tab (Backtab) Detected");
-                                // Shift+Tab: move focus to previous item
-                                tableView.nextItemInFocusChain(false).forceActiveFocus();
+                                editableTableRoot.focusPrevWidget();
                                 event.accepted = true;
                             }
                         }
@@ -479,7 +508,6 @@ FocusScope {
         border.width: editableTableRoot.style.verticalHeaderBorderWidth
         border.color: editableTableRoot.style.headerBorderColor
         focus: false
-        focusPolicy: Qt.NoFocus
 
         // Subtle right border to separate from content (ShadCN style)
         Rectangle {
@@ -494,7 +522,6 @@ FocusScope {
         Text {
             id: rowNumberText
             focus: false
-            focusPolicy: Qt.NoFocus
             anchors.fill: parent
             anchors.leftMargin: editableTableRoot.style.verticalHeaderPaddingHorizontal
             anchors.rightMargin: editableTableRoot.style.verticalHeaderPaddingHorizontal
@@ -877,3 +904,6 @@ FocusScope {
         // Both APIs are compatible when called from QML with a single row index.
     }
 }
+
+// Footnotes
+// [fn: 1]: This disable focus on the Header widgets
