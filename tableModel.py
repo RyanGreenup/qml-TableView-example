@@ -5,6 +5,7 @@ from PySide6.QtCore import (
     QModelIndex,
     Slot,
 )
+from PySide6.QtGui import QGuiApplication
 
 DisplayRole = Qt.ItemDataRole.DisplayRole
 EditRole = Qt.ItemDataRole.EditRole
@@ -415,3 +416,148 @@ class PythonTableModel(QAbstractTableModel):
                 print(f"→ High performer! Score: {score}")
             else:
                 print(f"→ Score could be improved: {score}")
+
+    # ========================================================================
+    # CLIPBOARD OPERATIONS
+    # ========================================================================
+    # Uses TSV format for spreadsheet compatibility (Excel, LibreOffice, etc.)
+    # - Columns separated by tabs (\t)
+    # - Rows separated by newlines (\n)
+
+    @Slot(QModelIndex)
+    def copyCell(self, index: QModelIndex) -> None:
+        """
+        Copy a single cell value to the clipboard.
+
+        Called from QML via:
+            tableView.model.copyCell(index)
+        """
+        if not index.isValid():
+            return
+
+        value = self.data(index, DisplayRole)
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(str(value) if value is not None else "")
+
+    @Slot(int)
+    def copyRow(self, row: int) -> None:
+        """
+        Copy an entire row to the clipboard in TSV format.
+
+        Called from QML via:
+            tableView.model.copyRow(rowIndex)
+        """
+        if row < 0 or row >= len(self._data):
+            return
+
+        row_data = self._data[row]
+        tsv_line = "\t".join(str(cell) for cell in row_data)
+
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(tsv_line)
+
+    @Slot(list)
+    def copySelection(self, indexes: list) -> None:
+        """
+        Copy selected cells to clipboard in TSV format.
+
+        Handles rectangular selections for spreadsheet paste compatibility.
+        Non-selected cells within the bounding rectangle are empty.
+
+        Called from QML via:
+            tableView.model.copySelection(selectionModel.selectedIndexes)
+
+        Args:
+            indexes: List of QModelIndex objects representing selected cells
+        """
+        if not indexes:
+            return
+
+        # Find bounding rectangle
+        min_row = min(idx.row() for idx in indexes)
+        max_row = max(idx.row() for idx in indexes)
+        min_col = min(idx.column() for idx in indexes)
+        max_col = max(idx.column() for idx in indexes)
+
+        # Build set of selected cells for quick lookup
+        selected = {(idx.row(), idx.column()) for idx in indexes}
+
+        # Build TSV output
+        rows = []
+        for row in range(min_row, max_row + 1):
+            cols = []
+            for col in range(min_col, max_col + 1):
+                if (row, col) in selected:
+                    value = self._data[row][col]
+                    cols.append(str(value) if value is not None else "")
+                else:
+                    cols.append("")  # Empty for non-selected cells
+            rows.append("\t".join(cols))
+
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText("\n".join(rows))
+
+    @Slot(QModelIndex)
+    def pasteToCell(self, index: QModelIndex) -> None:
+        """
+        Paste clipboard content to a single cell.
+
+        Called from QML via:
+            tableView.model.pasteToCell(index)
+        """
+        if not index.isValid():
+            return
+
+        clipboard = QGuiApplication.clipboard()
+        text = clipboard.text()
+
+        # For single cell paste, just use the first cell of pasted data
+        # (handles case where user copies from spreadsheet)
+        if text:
+            # Take first cell only (split by tab and newline)
+            first_line = text.split("\n")[0]
+            first_cell = first_line.split("\t")[0]
+            self.setData(index, first_cell, EditRole)
+
+    @Slot(QModelIndex)
+    def pasteFromClipboard(self, start_index: QModelIndex) -> None:
+        """
+        Paste TSV clipboard content starting at the given cell.
+
+        Supports multi-cell paste from spreadsheets. Pasted data fills
+        cells starting from start_index, expanding right and down.
+
+        Called from QML via:
+            tableView.model.pasteFromClipboard(currentIndex)
+
+        Args:
+            start_index: Top-left cell where paste begins
+        """
+        if not start_index.isValid():
+            return
+
+        clipboard = QGuiApplication.clipboard()
+        text = clipboard.text()
+
+        if not text:
+            return
+
+        start_row = start_index.row()
+        start_col = start_index.column()
+
+        # Parse TSV (rows separated by newlines, columns by tabs)
+        lines = text.rstrip("\n").split("\n")
+
+        for row_offset, line in enumerate(lines):
+            target_row = start_row + row_offset
+            if target_row >= len(self._data):
+                break  # Don't paste beyond table bounds
+
+            cells = line.split("\t")
+            for col_offset, cell_value in enumerate(cells):
+                target_col = start_col + col_offset
+                if target_col >= len(self._columns):
+                    break  # Don't paste beyond table bounds
+
+                idx = self.index(target_row, target_col)
+                self.setData(idx, cell_value, EditRole)

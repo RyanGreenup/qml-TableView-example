@@ -172,6 +172,41 @@ FocusScope {
         return tableView.selectionModel;
     }
 
+    // ========================================================================
+    // CLIPBOARD OPERATIONS
+    // ========================================================================
+    // Delegates to Python model methods for TSV clipboard support.
+    // TSV format is compatible with Excel, LibreOffice, Google Sheets, etc.
+
+    // Copy selection to clipboard (or current cell if no selection)
+    function copySelection() {
+        let selectedIndexes = tableView.selectionModel.selectedIndexes;
+        if (selectedIndexes.length === 0) {
+            // Fall back to current cell if no selection
+            let currentIdx = tableView.selectionModel.currentIndex;
+            if (currentIdx.valid) {
+                tableView.model.copyCell(currentIdx);
+            }
+            return;
+        }
+        // Delegate to Python model for multi-cell copy
+        tableView.model.copySelection(selectedIndexes);
+    }
+
+    // Paste clipboard content starting at current cell
+    function pasteFromClipboard() {
+        let currentIdx = tableView.selectionModel.currentIndex;
+        if (!currentIdx.valid) return;
+        tableView.model.pasteFromClipboard(currentIdx);
+    }
+
+    // Copy entire current row in TSV format
+    function copyCurrentRow() {
+        let currentIdx = tableView.selectionModel.currentIndex;
+        if (!currentIdx.valid) return;
+        tableView.model.copyRow(currentIdx.row);
+    }
+
     // Outer rectangle only handles the focus border
     Rectangle {
         id: focusBorder
@@ -397,6 +432,24 @@ FocusScope {
                                 editableTableRoot.focusPrevWidget();
                                 event.accepted = true;
                             }
+                        }
+
+                        // Clipboard: Ctrl+C to copy selection (or current cell if no selection)
+                        if (event.key === Qt.Key_C && (event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier)) {
+                            editableTableRoot.copySelection();
+                            event.accepted = true;
+                        }
+
+                        // Clipboard: Ctrl+Shift+C to copy entire current row (TSV format)
+                        if (event.key === Qt.Key_C && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
+                            editableTableRoot.copyCurrentRow();
+                            event.accepted = true;
+                        }
+
+                        // Clipboard: Ctrl+V to paste from clipboard (supports multi-cell TSV)
+                        if (event.key === Qt.Key_V && (event.modifiers & Qt.ControlModifier)) {
+                            editableTableRoot.pasteFromClipboard();
+                            event.accepted = true;
                         }
                     }
 
