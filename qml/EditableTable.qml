@@ -152,6 +152,12 @@ FocusScope {
         // Header Sort Indicator
         property int sortIndicatorFontSize: 10
         property int headerTextSpacing: 4  // Spacing between header text and sort indicator
+
+        // Selection Rectangle Handle
+        property int selectionHandleSize: 8
+        property color selectionHandleColor: palette.highlight
+        property color selectionHandleBorderColor: palette.base
+        property int selectionHandleBorderWidth: 2
     }
 
     // ========================================================================
@@ -198,14 +204,16 @@ FocusScope {
     // Paste clipboard content starting at current cell
     function pasteFromClipboard() {
         let currentIdx = tableView.selectionModel.currentIndex;
-        if (!currentIdx.valid) return;
+        if (!currentIdx.valid)
+            return;
         tableView.model.pasteFromClipboard(currentIdx);
     }
 
     // Copy entire current row in TSV format
     function copyCurrentRow() {
         let currentIdx = tableView.selectionModel.currentIndex;
-        if (!currentIdx.valid) return;
+        if (!currentIdx.valid)
+            return;
         tableView.model.copyRow(currentIdx.row);
     }
 
@@ -407,10 +415,6 @@ FocusScope {
                     }
 
                     Keys.onPressed: function (event) {
-                        console.log("Keys.onPressed - key:", event.key, "text:", event.text, "modifiers:", event.modifiers);
-                        console.log("enableVimBindings:", editableTableRoot.enableVimBindings);
-                        console.log("Qt.Key_H:", Qt.Key_H, "Qt.Key_J:", Qt.Key_J, "Qt.Key_K:", Qt.Key_K, "Qt.Key_L:", Qt.Key_L);
-
                         if (event.key === Qt.Key_F2) {
                             tableView.edit(tableView.model.index(selectionModel.currentIndex.row, selectionModel.currentIndex.column));
                             event.accepted = true;
@@ -429,32 +433,24 @@ FocusScope {
 
                         // Vim keybindings: h/j/k/l for left/down/up/right navigation
                         if (editableTableRoot.enableVimBindings) {
-                            console.log("Vim bindings enabled, checking keys...");
                             let currentRow = selectionModel.currentIndex.row;
                             let currentCol = selectionModel.currentIndex.column;
                             let newIndex = null;
                             let shiftPressed = event.modifiers & Qt.ShiftModifier;
 
                             if (event.key === Qt.Key_H) {
-                                console.log("H key pressed - moving left");
                                 let newCol = Math.max(0, currentCol - 1);
                                 newIndex = tableView.model.index(currentRow, newCol);
                                 event.accepted = true;
-                            }
-                            else if (event.key === Qt.Key_J) {
-                                console.log("J key pressed - moving down");
+                            } else if (event.key === Qt.Key_J) {
                                 let newRow = Math.min(tableView.model.rowCount - 1, currentRow + 1);
                                 newIndex = tableView.model.index(newRow, currentCol);
                                 event.accepted = true;
-                            }
-                            else if (event.key === Qt.Key_K) {
-                                console.log("K key pressed - moving up");
+                            } else if (event.key === Qt.Key_K) {
                                 let newRow = Math.max(0, currentRow - 1);
                                 newIndex = tableView.model.index(newRow, currentCol);
                                 event.accepted = true;
-                            }
-                            else if (event.key === Qt.Key_L) {
-                                console.log("L key pressed - moving right");
+                            } else if (event.key === Qt.Key_L) {
                                 let newCol = Math.min(tableView.model.columnCount - 1, currentCol + 1);
                                 newIndex = tableView.model.index(currentRow, newCol);
                                 event.accepted = true;
@@ -462,7 +458,6 @@ FocusScope {
 
                             if (newIndex && newIndex.valid) {
                                 if (shiftPressed) {
-                                    console.log("Shift pressed, creating rectangular selection");
                                     // Use current index as anchor if we only have one cell selected
                                     // (which means this is the first shift+move)
                                     let anchorRow = currentRow;
@@ -489,15 +484,11 @@ FocusScope {
                                         anchorCol = (currentCol === minCol) ? maxCol : minCol;
                                     }
 
-                                    console.log("Anchor:", anchorRow, anchorCol, "New:", newIndex.row, newIndex.column);
-
                                     // Calculate rectangle bounds from anchor to new position
                                     let rectMinRow = Math.min(anchorRow, newIndex.row);
                                     let rectMaxRow = Math.max(anchorRow, newIndex.row);
                                     let rectMinCol = Math.min(anchorCol, newIndex.column);
                                     let rectMaxCol = Math.max(anchorCol, newIndex.column);
-
-                                    console.log("Selecting rectangle:", rectMinRow, rectMinCol, "to", rectMaxRow, rectMaxCol);
 
                                     // Clear and select all cells in rectangle
                                     selectionModel.clear();
@@ -509,7 +500,6 @@ FocusScope {
                                     }
                                     selectionModel.setCurrentIndex(newIndex, ItemSelectionModel.NoUpdate);
                                 } else {
-                                    console.log("No shift, clearing selection and moving");
                                     selectionModel.setCurrentIndex(newIndex, ItemSelectionModel.ClearsAndSelects);
                                 }
                                 tableView.positionViewAtCell(newIndex.column, newIndex.row, TableView.Visible);
@@ -652,7 +642,7 @@ FocusScope {
             hoverEnabled: editableTableRoot.style.enableHoverEffects
             acceptedButtons: Qt.LeftButton
 
-            onPressed: function(mouse) {
+            onPressed: function (mouse) {
                 // Only handle single clicks (not drag selection)
                 if (!mouse.modifiers) {
                     let cellIndex = tableView.model.index(tableCell.row, tableCell.column);
@@ -811,6 +801,64 @@ FocusScope {
     SelectionRectangle {
         target: tableView
         selectionMode: SelectionRectangle.Drag
+        topLeftHandle: null
+        bottomRightHandle: DragHandle {}
+    }
+
+    component DragHandle: Rectangle {
+        id: handleHitArea
+        property bool hovered: handleMouseArea.containsMouse
+        property real hitAreaSize: editableTableRoot.style.selectionHandleSize * 3
+
+        width: hitAreaSize
+        height: hitAreaSize
+        color: "transparent"
+        visible: SelectionRectangle.control.active
+
+        Rectangle {
+            id: handleVisual
+            property real baseSize: editableTableRoot.style.selectionHandleSize
+            property real hoverScale: 2
+
+            anchors.centerIn: parent
+            width: baseSize * (handleHitArea.hovered ? hoverScale : 1.0)
+            height: baseSize * (handleHitArea.hovered ? hoverScale : 1.0)
+            radius: (baseSize * (handleHitArea.hovered ? hoverScale : 1.0)) / 2
+            color: Qt.darker(editableTableRoot.style.selectionHandleColor, handleHitArea.hovered ? 1.2 : 1.0)
+            border.color: editableTableRoot.style.selectionHandleBorderColor
+            border.width: editableTableRoot.style.selectionHandleBorderWidth
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuad
+                }
+            }
+            Behavior on height {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuad
+                }
+            }
+            Behavior on radius {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuad
+                }
+            }
+            Behavior on color {
+                ColorAnimation {
+                    duration: 150
+                }
+            }
+        }
+
+        MouseArea {
+            id: handleMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.SizeFDiagCursor
+        }
     }
 
     // Default example model (used when editableTableRoot.tableModel is null)
