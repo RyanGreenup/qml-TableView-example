@@ -236,7 +236,6 @@ FocusScope {
             HorizontalHeaderView {
                 id: hHeader
                 clip: true
-                activeFocusOnTab: false // [fn: 1]
                 anchors.top: parent.top
                 anchors.left: editableTableRoot.showRowNumbers ? vHeader.right : parent.left
                 anchors.right: parent.right
@@ -251,6 +250,16 @@ FocusScope {
                 acceptedButtons: editableTableRoot.dragButtons
                 visible: !editableTableRoot.hideHeaders
 
+                activeFocusOnTab: false // [fn: 1]
+                focus: false
+                onActiveFocusChanged: {
+                    // Redirect focus back to tableView if header gets clicked
+                    // activeFocusOnTab only prevents Tab navigation, not mouse clicks
+                    if (activeFocus) {
+                        tableView.forceActiveFocus();
+                    }
+                }
+
                 delegate: ColumnTitleTile {}
             }
 
@@ -258,9 +267,6 @@ FocusScope {
             VerticalHeaderView {
                 id: vHeader
                 clip: true
-                activeFocusOnTab: false // [fn: 1]
-
-                focus: false
                 anchors.top: hHeader.bottom
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
@@ -270,6 +276,16 @@ FocusScope {
                 acceptedButtons: editableTableRoot.dragButtons
                 // Show row numbers only if: enabled AND headers not hidden
                 visible: editableTableRoot.showRowNumbers && !editableTableRoot.hideHeaders
+
+                activeFocusOnTab: false // [fn: 1]
+                focus: false
+                onActiveFocusChanged: {
+                    // Redirect focus back to tableView if header gets clicked
+                    // activeFocusOnTab only prevents Tab navigation, not mouse clicks
+                    if (activeFocus) {
+                        tableView.forceActiveFocus();
+                    }
+                }
 
                 delegate: RowNumberTile {}
             }
@@ -907,3 +923,6 @@ FocusScope {
 
 // Footnotes
 // [fn: 1]: This disable focus on the Header widgets
+//          Note: `focusPolicy: Qt.NoFocus` should work in Qt 6.7+,
+//          but it didn't for me, hence the workaround with
+//          onActiveFocusChanged + activeFocusOnTab
