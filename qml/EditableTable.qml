@@ -82,10 +82,10 @@ FocusScope {
         property int horizontalHeaderPaddingHorizontal: 16  // Generous horizontal padding
 
         // Vertical Header Styling
-        property int verticalHeaderWidth: 60
+        property int verticalHeaderMinWidth: 32  // Minimum width for row numbers
         property int verticalHeaderBorderWidth: 0  // No outer border
         property int verticalHeaderRightBorderWidth: 1  // Subtle right border to separate from content
-        property int verticalHeaderPaddingHorizontal: 12  // Padding for row numbers
+        property int verticalHeaderPaddingHorizontal: 6  // Padding for row numbers
         property int verticalHeaderFontSize: 11  // Smaller, more subtle
         property int rowNumberTextAlignment: Text.AlignRight  // Right-align for better number alignment
 
@@ -453,7 +453,11 @@ FocusScope {
     }
     component RowNumberTile: Rectangle {
         id: verticalHeaderDelegate
-        implicitWidth: editableTableRoot.style.verticalHeaderWidth
+        // Auto-size width based on text content + padding, with minimum width
+        implicitWidth: Math.max(
+            editableTableRoot.style.verticalHeaderMinWidth,
+            rowNumberText.implicitWidth + (editableTableRoot.style.verticalHeaderPaddingHorizontal * 2)
+        )
         implicitHeight: editableTableRoot.style.cellHeight
         required property int index
         color: editableTableRoot.style.headerBackgroundColor
@@ -473,6 +477,7 @@ FocusScope {
         }
 
         Text {
+            id: rowNumberText
             focus: false
             focusPolicy: Qt.NoFocus
             anchors.fill: parent
